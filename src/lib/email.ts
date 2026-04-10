@@ -38,7 +38,7 @@ export async function sendActaEmail({
   );
 
   const { data, error } = await getResend().emails.send({
-    from: `Inventario SaleADS <${FROM_EMAIL}>`,
+    from: `InventIA <${FROM_EMAIL}>`,
     to: allRecipients,
     subject,
     html: htmlBody,
@@ -87,7 +87,7 @@ export function buildEntregaEmailHtml(params: {
       </table>
       <p>Adjunto encontrará el acta de entrega con los detalles completos del activo.</p>
       <p style="color: #666; font-size: 12px; margin-top: 30px; border-top: 1px solid #e5e5e5; padding-top: 10px;">
-        Este es un correo automático del Sistema de Gestión de Inventario — Saleads Corp
+        Este es un correo automático de InventIA — Saleads Corp
       </p>
     </div>
   `;
@@ -130,7 +130,7 @@ export function buildDevolucionEmailHtml(params: {
       <p>Adjunto encontrará el acta de devolución y paz y salvo.</p>
       <p>Queda a <strong>paz y salvo</strong> respecto a este activo.</p>
       <p style="color: #666; font-size: 12px; margin-top: 30px; border-top: 1px solid #e5e5e5; padding-top: 10px;">
-        Este es un correo automático del Sistema de Gestión de Inventario — Saleads Corp
+        Este es un correo automático de InventIA — Saleads Corp
       </p>
     </div>
   `;

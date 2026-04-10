@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Inventario SaleADS",
-  description: "Sistema de Gestión de Inventario de Activos — Saleads Corp",
+  title: "InventIA",
+  description: "Gestión inteligente de activos — Saleads Corp",
 };
 
 export default function RootLayout({

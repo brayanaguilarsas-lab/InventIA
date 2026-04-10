@@ -78,7 +78,7 @@ export async function generateActaPDF(data: ActaEntregaData): Promise<Uint8Array
 
   drawText('SALEADS CORP', margin, y, { font: fontBold, size: 14 });
   y -= lineHeight;
-  drawText('Sistema de Gestión de Inventario de Activos', margin, y, { size: 9, color: gray });
+  drawText('InventIA — Gestión inteligente de activos', margin, y, { size: 9, color: gray });
   y -= lineHeight * 2;
 
   drawText(title, margin, y, { font: fontBold, size: 13 });
@@ -270,7 +270,7 @@ export async function generateActaPDF(data: ActaEntregaData): Promise<Uint8Array
 
   // Footer
   drawText(
-    `Documento generado automáticamente — Inventario SaleADS — ${new Date().toLocaleDateString('es-CO')}`,
+    `Documento generado automáticamente — InventIA — ${new Date().toLocaleDateString('es-CO')}`,
     margin,
     30,
     { size: 7, color: gray }

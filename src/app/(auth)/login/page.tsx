@@ -45,9 +45,9 @@ export default function LoginPage() {
           <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-lg bg-primary">
             <Package className="h-6 w-6 text-primary-foreground" />
           </div>
-          <CardTitle className="text-2xl">SaleADS Inventario</CardTitle>
+          <CardTitle className="text-2xl">InventIA</CardTitle>
           <CardDescription>
-            Sistema de Gestión de Inventario de Activos
+            Gestión inteligente de activos — Saleads Corp
           </CardDescription>
         </CardHeader>
         <CardContent>
