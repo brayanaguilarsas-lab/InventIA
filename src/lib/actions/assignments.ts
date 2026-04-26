@@ -381,6 +381,10 @@ export async function resendAssignmentEmail(assignmentId: string): Promise<Resen
     attachments: result.attachmentCount,
   });
 
+  // El acta_url puede haber cambiado tras el upload a Drive — invalidar caches.
+  revalidatePath('/asignaciones');
+  revalidatePath('/activos');
+
   return {
     ok: result.emailSent,
     recipient: result.recipient,

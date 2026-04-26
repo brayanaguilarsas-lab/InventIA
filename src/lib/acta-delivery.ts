@@ -49,10 +49,14 @@ async function getAdminName(supabase: SupabaseClient, userId: string | null): Pr
   return profile?.full_name ?? 'Administración SaleADS';
 }
 
+// Combining diacritical marks (U+0300 a U+036F) — descomponemos con NFD
+// y los eliminamos para obtener un filename ASCII puro.
+const COMBINING_MARKS = /[̀-ͯ]/g;
+
 function safeFileName(s: string) {
   return s
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(COMBINING_MARKS, '')
     .replace(/[^a-zA-Z0-9_-]+/g, '_')
     .replace(/^_+|_+$/g, '');
 }

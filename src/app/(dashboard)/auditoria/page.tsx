@@ -182,7 +182,11 @@ export default async function AuditPage({
                   const action = actionLabels[log.action];
                   const details = log.details;
                   const detailStr = Object.entries(details)
-                    .map(([k, v]) => `${k}: ${v}`)
+                    .map(([k, v]) => {
+                      if (v === null || v === undefined) return `${k}: —`;
+                      if (typeof v === 'object') return `${k}: ${JSON.stringify(v)}`;
+                      return `${k}: ${v}`;
+                    })
                     .join(', ');
 
                   return (
