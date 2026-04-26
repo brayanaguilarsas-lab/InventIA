@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import Anthropic from '@anthropic-ai/sdk';
+import { GoogleGenAI, type Part } from '@google/genai';
 import { createClient } from '@/lib/supabase/server';
 
 export const maxDuration = 60;
@@ -8,12 +8,23 @@ export const runtime = 'nodejs';
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB por archivo
 const MAX_TOTAL_SIZE = 30 * 1024 * 1024; // 30MB total
 const MAX_FILES = 3;
-const ALLOWED_MIME = new Set(['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'application/pdf']);
+const ALLOWED_MIME = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'application/pdf',
+]);
+
+// Modelo de Gemini para extracción multimodal. Flash es ~30x más barato que
+// Claude Sonnet con calidad muy comparable para tareas estructuradas.
+// Cambiar a 'gemini-2.5-flash' cuando esté disponible para mayor calidad.
+const GEMINI_MODEL = 'gemini-2.0-flash';
 
 // Rate limit en memoria por usuario (resetea con cada redeploy o tras 1h)
 const rateLimitStore = new Map<string, { count: number; windowStart: number }>();
 const RATE_WINDOW_MS = 60 * 60 * 1000; // 1 hora
-const RATE_MAX = 10; // 10 extracciones por hora
+const RATE_MAX = 20; // 20 extracciones por hora (Gemini Flash es barato, podemos ser generosos)
 
 function checkRateLimit(userId: string): { ok: boolean; retryAfterSec: number } {
   const now = Date.now();
@@ -30,6 +41,25 @@ function checkRateLimit(userId: string): { ok: boolean; retryAfterSec: number } 
   return { ok: true, retryAfterSec: 0 };
 }
 
+const PROMPT = `Analiza las imágenes/PDFs proporcionadas (pueden ser facturas, fotos de productos o fichas técnicas) y extrae la siguiente información para un sistema de inventario de activos empresariales.
+
+Responde SIEMPRE en formato JSON con esta estructura exacta:
+{
+  "name": "nombre descriptivo del activo",
+  "category_suggestion": "Tecnología | Mobiliario | Vehículos | Electrodomésticos",
+  "commercial_value": número o null,
+  "purchase_date": "YYYY-MM-DD" o null,
+  "supplier": "nombre/razón social del proveedor tomado de la factura" o null,
+  "specific_fields": {
+    "marca": "...",
+    "modelo": "...",
+    "serial": "..."
+  },
+  "alerts": ["campo X no identificado porque...", ...]
+}
+
+Si no puedes identificar un campo con certeza, inclúyelo en "alerts" explicando por qué no fue posible extraerlo. Responde SOLO con el JSON, sin markdown ni texto adicional.`;
+
 export async function POST(request: Request) {
   try {
     const supabase = await createClient();
@@ -38,7 +68,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    // Rate limit: 10 extracciones / hora / usuario
+    // Rate limit por usuario
     const rl = checkRateLimit(user.id);
     if (!rl.ok) {
       return NextResponse.json(
@@ -49,13 +79,18 @@ export async function POST(request: Request) {
       );
     }
 
-    if (!process.env.ANTHROPIC_API_KEY) {
+    // Acepta cualquiera de los tres nombres por flexibilidad de configuración.
+    const apiKey =
+      process.env.GEMINI_API_KEY ??
+      process.env.GOOGLE_GENAI_API_KEY ??
+      process.env.API_GEMINAI_GOOGLE;
+    if (!apiKey) {
       return NextResponse.json(
-        { error: 'ANTHROPIC_API_KEY no configurada en el servidor' },
+        { error: 'GEMINI_API_KEY no configurada en el servidor' },
         { status: 500 }
       );
     }
-    const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY });
+    const genai = new GoogleGenAI({ apiKey });
 
     const formData = await request.formData();
     const files = formData.getAll('files') as File[];
@@ -97,30 +132,18 @@ export async function POST(request: Request) {
       );
     }
 
-    // Convert files to base64 for Claude Vision (images + PDFs)
-    const contentBlocks: (Anthropic.ImageBlockParam | Anthropic.DocumentBlockParam)[] = [];
-    for (const file of files.slice(0, 3)) {
+    // Convertir archivos a inline parts para Gemini (base64 + mime).
+    const parts: Part[] = [];
+    for (const file of files.slice(0, MAX_FILES)) {
       const buffer = await file.arrayBuffer();
       const base64 = Buffer.from(buffer).toString('base64');
-      const type = file.type || '';
-      if (type.startsWith('image/')) {
-        contentBlocks.push({
-          type: 'image',
-          source: {
-            type: 'base64',
-            media_type: type as 'image/jpeg' | 'image/png' | 'image/gif' | 'image/webp',
-            data: base64,
-          },
-        });
-      } else if (type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf')) {
-        contentBlocks.push({
-          type: 'document',
-          source: { type: 'base64', media_type: 'application/pdf', data: base64 },
-        });
-      }
+      const isPdf =
+        file.type === 'application/pdf' || file.name.toLowerCase().endsWith('.pdf');
+      const mimeType = isPdf ? 'application/pdf' : (file.type || 'image/jpeg');
+      parts.push({ inlineData: { data: base64, mimeType } });
     }
 
-    if (contentBlocks.length === 0) {
+    if (parts.length === 0) {
       return NextResponse.json(
         { error: 'Formato no soportado. Sube imágenes (JPG/PNG) o PDFs.' },
         { status: 400 }
@@ -130,95 +153,87 @@ export async function POST(request: Request) {
     const schemaInfo = fieldsSchema
       ? `\n\nCampos específicos esperados: ${fieldsSchema}`
       : '';
+    parts.push({ text: PROMPT + schemaInfo });
 
-    const message = await anthropic.messages.create({
-      model: 'claude-sonnet-4-6',
-      max_tokens: 2000,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            ...contentBlocks,
-            {
-              type: 'text',
-              text: `Analiza las imágenes proporcionadas (pueden ser facturas, fotos de productos o fichas técnicas) y extrae la siguiente información para un sistema de inventario de activos empresariales.
-
-Responde SIEMPRE en formato JSON con esta estructura:
-{
-  "name": "nombre descriptivo del activo",
-  "category_suggestion": "Tecnología | Mobiliario | Vehículos | Electrodomésticos",
-  "commercial_value": número o null,
-  "purchase_date": "YYYY-MM-DD" o null,
-  "supplier": "nombre/razón social del proveedor tomado de la factura" o null,
-  "specific_fields": {
-    "marca": "...",
-    "modelo": "...",
-    "serial": "...",
-    // otros campos según la categoría detectada
-  },
-  "alerts": ["campo X no identificado porque...", ...]
-}
-
-Si no puedes identificar un campo con certeza, inclúyelo en "alerts" explicando por qué no fue posible extraerlo.${schemaInfo}
-
-Responde SOLO con el JSON, sin texto adicional.`,
-            },
-          ],
-        },
-      ],
+    const response = await genai.models.generateContent({
+      model: GEMINI_MODEL,
+      contents: [{ role: 'user', parts }],
+      config: {
+        temperature: 0.1, // baja para extracción determinística
+        maxOutputTokens: 2000,
+        responseMimeType: 'application/json', // fuerza JSON, evita markdown
+      },
     });
 
-    const responseText =
-      message.content[0].type === 'text' ? message.content[0].text : '';
+    const responseText = response.text ?? '';
 
-    // Parse JSON from response
+    // Aunque pedimos JSON, defendemos parseo si vino con markdown fence.
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
       return NextResponse.json(
-        { error: 'No se pudo extraer información', alerts: ['La IA no pudo procesar los documentos'] },
+        {
+          error: 'No se pudo extraer información',
+          alerts: ['La IA no pudo procesar los documentos'],
+        },
         { status: 200 }
       );
     }
 
-    const extracted = JSON.parse(jsonMatch[0]);
+    let extracted: unknown;
+    try {
+      extracted = JSON.parse(jsonMatch[0]);
+    } catch {
+      return NextResponse.json(
+        {
+          error: 'La IA devolvió un JSON inválido',
+          alerts: ['Reintenta con una imagen más legible o ingresa los datos manualmente'],
+        },
+        { status: 200 }
+      );
+    }
+
     return NextResponse.json(extracted);
   } catch (error) {
     console.error('AI extraction error:', error);
     const raw = error instanceof Error ? error.message : 'Error en la extracción con IA';
     const lower = raw.toLowerCase();
 
-    // Traduce errores conocidos del SDK de Anthropic a mensajes claros y accionables.
     let friendly = raw;
     let status = 500;
 
-    if (lower.includes('credit balance is too low') || lower.includes('insufficient credit')) {
+    if (
+      lower.includes('quota') ||
+      lower.includes('billing') ||
+      lower.includes('credit')
+    ) {
       friendly =
-        'La cuenta de Anthropic no tiene créditos suficientes. ' +
-        'Recarga en console.anthropic.com → Plans & Billing y vuelve a intentar. ' +
-        'Mientras tanto puedes registrar el activo manualmente.';
+        'La cuenta de Google AI no tiene cuota disponible. ' +
+        'Habilita facturación en aistudio.google.com o console.cloud.google.com.';
       status = 402;
     } else if (
-      lower.includes('invalid api key') ||
-      lower.includes('authentication') ||
-      lower.includes('401')
+      lower.includes('api key') ||
+      lower.includes('api_key') ||
+      lower.includes('permission denied') ||
+      lower.includes('401') ||
+      lower.includes('403')
     ) {
       friendly =
-        'La ANTHROPIC_API_KEY configurada no es válida o fue revocada. ' +
-        'Genera una nueva en console.anthropic.com y actualízala en Vercel.';
+        'La GEMINI_API_KEY no es válida o no tiene permisos. ' +
+        'Genera una nueva en aistudio.google.com/apikey y actualízala en Vercel.';
       status = 401;
-    } else if (lower.includes('rate limit') || lower.includes('429')) {
+    } else if (lower.includes('rate limit') || lower.includes('429') || lower.includes('resource_exhausted')) {
       friendly =
-        'La cuenta de Anthropic alcanzó su límite de uso por minuto. Espera un momento y vuelve a intentar.';
+        'La cuenta de Google AI alcanzó su límite de uso por minuto. Espera un momento y vuelve a intentar.';
       status = 429;
     } else if (
+      lower.includes('unavailable') ||
       lower.includes('overloaded') ||
-      lower.includes('temporarily unavailable') ||
-      lower.includes('529')
+      lower.includes('503')
     ) {
-      friendly = 'El servicio de Claude está temporalmente saturado. Intenta de nuevo en unos minutos.';
+      friendly = 'El servicio de Gemini está temporalmente saturado. Intenta de nuevo en unos minutos.';
       status = 503;
-    } else if (lower.includes('model') && lower.includes('not found')) {
-      friendly = 'El modelo de IA configurado no está disponible para esta cuenta. Contacta al administrador.';
+    } else if (lower.includes('model') && (lower.includes('not found') || lower.includes('not supported'))) {
+      friendly = `El modelo "${GEMINI_MODEL}" no está disponible en esta región/cuenta. Contacta al administrador.`;
       status = 500;
     }
 
