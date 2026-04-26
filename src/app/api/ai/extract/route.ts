@@ -16,10 +16,10 @@ const ALLOWED_MIME = new Set([
   'application/pdf',
 ]);
 
-// Modelo de Gemini para extracción multimodal. Flash es ~30x más barato que
-// Claude Sonnet con calidad muy comparable para tareas estructuradas.
-// Cambiar a 'gemini-2.5-flash' cuando esté disponible para mayor calidad.
-const GEMINI_MODEL = 'gemini-2.0-flash';
+// Modelo de Gemini para extracción multimodal. Flash es muy barato y soporta
+// vision + responseMimeType:'application/json'. gemini-2.0-flash quedó
+// deprecado para cuentas nuevas — usamos 2.5-flash que es el sucesor directo.
+const GEMINI_MODEL = 'gemini-2.5-flash';
 
 // Rate limit en memoria por usuario (resetea con cada redeploy o tras 1h)
 const rateLimitStore = new Map<string, { count: number; windowStart: number }>();
@@ -232,8 +232,14 @@ export async function POST(request: Request) {
     ) {
       friendly = 'El servicio de Gemini está temporalmente saturado. Intenta de nuevo en unos minutos.';
       status = 503;
-    } else if (lower.includes('model') && (lower.includes('not found') || lower.includes('not supported'))) {
-      friendly = `El modelo "${GEMINI_MODEL}" no está disponible en esta región/cuenta. Contacta al administrador.`;
+    } else if (
+      lower.includes('no longer available') ||
+      lower.includes('deprecated') ||
+      (lower.includes('model') && lower.includes('not found')) ||
+      (lower.includes('model') && lower.includes('not supported')) ||
+      lower.includes('404')
+    ) {
+      friendly = `El modelo "${GEMINI_MODEL}" no está disponible. Es probable que Google lo haya deprecado — contacta al administrador para actualizarlo.`;
       status = 500;
     }
 
