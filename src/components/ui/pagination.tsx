@@ -30,6 +30,8 @@ export function Pagination({ total, pageSize, paramName = 'page' }: PaginationPr
 
   const from = (current - 1) * pageSize + 1;
   const to = Math.min(current * pageSize, total);
+  const prevDisabled = current <= 1;
+  const nextDisabled = current >= totalPages;
 
   return (
     <div className="flex items-center justify-between pt-4 gap-4 flex-wrap">
@@ -37,31 +39,39 @@ export function Pagination({ total, pageSize, paramName = 'page' }: PaginationPr
         Mostrando {from}–{to} de {total}
       </span>
       <div className="flex items-center gap-2">
-        <Link
-          href={buildHref(current - 1)}
-          aria-disabled={current <= 1}
-          tabIndex={current <= 1 ? -1 : undefined}
-          className={current <= 1 ? 'pointer-events-none opacity-50' : ''}
-        >
-          <Button variant="outline" size="sm" disabled={current <= 1}>
+        {prevDisabled ? (
+          <Button variant="outline" size="sm" disabled>
             <ChevronLeft className="h-4 w-4" />
             Anterior
           </Button>
-        </Link>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link href={buildHref(current - 1)} prefetch={false} />}
+          >
+            <ChevronLeft className="h-4 w-4" />
+            Anterior
+          </Button>
+        )}
         <span className="text-sm font-mono">
           {current} / {totalPages}
         </span>
-        <Link
-          href={buildHref(current + 1)}
-          aria-disabled={current >= totalPages}
-          tabIndex={current >= totalPages ? -1 : undefined}
-          className={current >= totalPages ? 'pointer-events-none opacity-50' : ''}
-        >
-          <Button variant="outline" size="sm" disabled={current >= totalPages}>
+        {nextDisabled ? (
+          <Button variant="outline" size="sm" disabled>
             Siguiente
             <ChevronRight className="h-4 w-4" />
           </Button>
-        </Link>
+        ) : (
+          <Button
+            variant="outline"
+            size="sm"
+            render={<Link href={buildHref(current + 1)} prefetch={false} />}
+          >
+            Siguiente
+            <ChevronRight className="h-4 w-4" />
+          </Button>
+        )}
       </div>
     </div>
   );
