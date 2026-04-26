@@ -43,6 +43,7 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Hint } from '@/components/ui/hint';
 import { Plus, Loader2, Pencil, Trash2, GripVertical, X } from 'lucide-react';
 import { createCategory, updateCategory, deleteCategory } from '@/lib/actions/categories';
 import { humanizeError } from '@/lib/errors';
@@ -195,21 +196,26 @@ export function CategoriesManager({ categories }: { categories: CategoryRow[] })
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => setEditingCategory(cat)}
-                      >
-                        <Pencil className="h-3 w-3" />
-                      </Button>
+                      <Hint label="Editar campos" description={cat.name}>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => setEditingCategory(cat)}
+                          aria-label="Editar campos"
+                        >
+                          <Pencil className="h-3 w-3" />
+                        </Button>
+                      </Hint>
                       <AlertDialog>
-                        <AlertDialogTrigger
-                          render={
-                            <Button variant="ghost" size="sm">
-                              <Trash2 className="h-3 w-3 text-destructive" />
-                            </Button>
-                          }
-                        />
+                        <Hint label="Eliminar categoría" description="Solo si no tiene activos">
+                          <AlertDialogTrigger
+                            render={
+                              <Button variant="ghost" size="sm" aria-label="Eliminar">
+                                <Trash2 className="h-3 w-3 text-destructive" />
+                              </Button>
+                            }
+                          />
+                        </Hint>
                         <AlertDialogContent>
                           <AlertDialogHeader>
                             <AlertDialogTitle>¿Eliminar &quot;{cat.name}&quot;?</AlertDialogTitle>
@@ -337,9 +343,11 @@ function CategoryFieldsEditor({
           <CardTitle>Campos de &quot;{category.name}&quot;</CardTitle>
           <CardDescription>Prefijo: {category.code_prefix}</CardDescription>
         </div>
-        <Button variant="ghost" size="sm" onClick={onClose}>
-          <X className="h-4 w-4" />
-        </Button>
+        <Hint label="Cerrar editor">
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Cerrar editor">
+            <X className="h-4 w-4" />
+          </Button>
+        </Hint>
       </CardHeader>
       <CardContent className="space-y-6">
         {fields.length > 0 && (
@@ -368,9 +376,11 @@ function CategoryFieldsEditor({
                       )}
                     </div>
                   </div>
-                  <Button variant="ghost" size="sm" onClick={() => removeField(index)}>
-                    <Trash2 className="h-3 w-3 text-destructive" />
-                  </Button>
+                  <Hint label="Quitar campo" description={field.label}>
+                    <Button variant="ghost" size="sm" onClick={() => removeField(index)} aria-label="Quitar campo">
+                      <Trash2 className="h-3 w-3 text-destructive" />
+                    </Button>
+                  </Hint>
                 </div>
               ))}
             </div>

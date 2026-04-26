@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Hint } from '@/components/ui/hint';
 import { FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
 
 export function ExportButton() {
@@ -49,32 +50,36 @@ export function ExportButton() {
   return (
     <div className="flex flex-col items-end gap-2">
       <div className="flex gap-2">
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => handleExport('csv')}
-          disabled={loading !== null}
-        >
-          {loading === 'csv' ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <FileSpreadsheet className="mr-2 h-4 w-4" />
-          )}
-          Exportar Excel (CSV)
-        </Button>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => handleExport('pdf')}
-          disabled={loading !== null}
-        >
-          {loading === 'pdf' ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <FileText className="mr-2 h-4 w-4" />
-          )}
-          Exportar PDF
-        </Button>
+        <Hint label="Descargar inventario en CSV" description="Compatible con Excel y Google Sheets">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleExport('csv')}
+            disabled={loading !== null}
+          >
+            {loading === 'csv' ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <FileSpreadsheet className="mr-2 h-4 w-4" />
+            )}
+            Exportar Excel (CSV)
+          </Button>
+        </Hint>
+        <Hint label="Generar reporte PDF" description="Vista impresa del inventario filtrado">
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => handleExport('pdf')}
+            disabled={loading !== null}
+          >
+            {loading === 'pdf' ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <FileText className="mr-2 h-4 w-4" />
+            )}
+            Exportar PDF
+          </Button>
+        </Hint>
       </div>
       {error && (
         <Alert variant="destructive" className="max-w-xl">

@@ -43,6 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Hint } from '@/components/ui/hint';
 import { MoreHorizontal, Pencil, Trash2, Star, FileText, Loader2, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { humanizeError } from '@/lib/errors';
@@ -157,13 +158,15 @@ export function AssignmentEditMenu({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button variant="ghost" size="sm" aria-label="Más opciones">
-              <MoreHorizontal className="h-3 w-3" />
-            </Button>
-          }
-        />
+        <Hint label="Más acciones" description="Editar, reenviar, eliminar">
+          <DropdownMenuTrigger
+            render={
+              <Button variant="ghost" size="sm" aria-label="Más opciones">
+                <MoreHorizontal className="h-3 w-3" />
+              </Button>
+            }
+          />
+        </Hint>
         <DropdownMenuContent align="end" className="w-60">
           <DropdownMenuGroup>
             <DropdownMenuLabel className="text-xs">{assetCode}</DropdownMenuLabel>

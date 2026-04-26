@@ -10,6 +10,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Hint } from '@/components/ui/hint';
 import { AssetStatusBadge } from '@/lib/status-badges';
 import { ArrowUpRight, Package } from 'lucide-react';
 import type { CategoryBucket } from '@/app/(dashboard)/reportes/page';
@@ -50,33 +51,34 @@ export function CategoryAssetsList({
         {entries.map(([name, info]) => {
           const pct = grandTotal > 0 ? (info.value / grandTotal) * 100 : 0;
           return (
-            <button
-              key={name}
-              type="button"
-              onClick={() => setOpenCategory(name)}
-              className="group flex w-full items-center justify-between gap-4 rounded-md p-2 text-left transition hover:bg-muted focus:bg-muted focus:outline-none"
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-medium">{name}</span>
-                  <span className="text-xs text-muted-foreground">
-                    ({info.count} {info.count === 1 ? 'activo' : 'activos'})
+            <Hint key={name} label="Ver detalle" description={`${info.count} activos en ${name}`}>
+              <button
+                type="button"
+                onClick={() => setOpenCategory(name)}
+                className="group flex w-full items-center justify-between gap-4 rounded-md p-2 text-left transition hover:bg-muted focus:bg-muted focus:outline-none"
+              >
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-medium">{name}</span>
+                    <span className="text-xs text-muted-foreground">
+                      ({info.count} {info.count === 1 ? 'activo' : 'activos'})
+                    </span>
+                  </div>
+                  <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full bg-primary/70 transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <span className="text-sm font-mono tabular-nums">
+                    {formatCurrency(info.value)}
                   </span>
+                  <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
                 </div>
-                <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-muted">
-                  <div
-                    className="h-full bg-primary/70 transition-all"
-                    style={{ width: `${pct}%` }}
-                  />
-                </div>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                <span className="text-sm font-mono tabular-nums">
-                  {formatCurrency(info.value)}
-                </span>
-                <ArrowUpRight className="h-3.5 w-3.5 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
-              </div>
-            </button>
+              </button>
+            </Hint>
           );
         })}
       </div>

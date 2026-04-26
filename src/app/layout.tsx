@@ -38,7 +38,7 @@ export default function RootLayout({
         <Script id="theme-init" strategy="beforeInteractive">
           {themeInitScript}
         </Script>
-        <TooltipProvider>{children}</TooltipProvider>
+        <TooltipProvider delay={300}>{children}</TooltipProvider>
         <Toaster position="top-right" theme="system" richColors closeButton />
       </body>
     </html>

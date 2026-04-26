@@ -13,6 +13,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
+import { Hint } from '@/components/ui/hint';
 import { LogOut, Sun, Moon, Monitor } from 'lucide-react';
 
 type Theme = 'light' | 'dark' | 'system';
@@ -64,24 +65,27 @@ export function UserNav({ email, fullName }: UserNavProps) {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <button
-            type="button"
-            className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-accent transition-colors"
-          >
-            <Avatar className="h-9 w-9 shrink-0">
-              <AvatarFallback className="bg-primary text-primary-foreground text-xs">
-                {initials}
-              </AvatarFallback>
-            </Avatar>
-            <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-xs font-medium truncate">{fullName}</span>
-              <span className="text-[10px] text-muted-foreground truncate">{email}</span>
-            </div>
-          </button>
-        }
-      />
+      <Hint label="Cuenta y preferencias" description="Tema, cerrar sesión" side="right">
+        <DropdownMenuTrigger
+          render={
+            <button
+              type="button"
+              className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-accent transition-colors"
+              aria-label="Menú de cuenta"
+            >
+              <Avatar className="h-9 w-9 shrink-0">
+                <AvatarFallback className="bg-primary text-primary-foreground text-xs">
+                  {initials}
+                </AvatarFallback>
+              </Avatar>
+              <div className="flex flex-col min-w-0 flex-1">
+                <span className="text-xs font-medium truncate">{fullName}</span>
+                <span className="text-[10px] text-muted-foreground truncate">{email}</span>
+              </div>
+            </button>
+          }
+        />
+      </Hint>
       <DropdownMenuContent align="end" className="w-56">
         <DropdownMenuGroup>
           <DropdownMenuLabel>

@@ -1,7 +1,7 @@
 'use client';
 
 import { Button } from '@/components/ui/button';
-import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
+import { Hint } from '@/components/ui/hint';
 import { FileDown } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -25,17 +25,10 @@ export function DownloadActaButton({
   }
 
   return (
-    <Tooltip>
-      <TooltipTrigger
-        render={
-          <Button variant="ghost" size="sm" onClick={handleOpen}>
-            <FileDown className="h-3 w-3" />
-          </Button>
-        }
-      />
-      <TooltipContent>
-        <p>{label}</p>
-      </TooltipContent>
-    </Tooltip>
+    <Hint label={`Descargar ${label}`} description="Se abre en una pestaña nueva">
+      <Button variant="ghost" size="sm" onClick={handleOpen} aria-label={`Descargar ${label}`}>
+        <FileDown className="h-3 w-3" />
+      </Button>
+    </Hint>
   );
 }

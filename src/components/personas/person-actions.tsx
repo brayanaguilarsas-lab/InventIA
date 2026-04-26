@@ -20,6 +20,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from '@/components/ui/alert-dialog';
+import { Hint } from '@/components/ui/hint';
 import { MoreHorizontal, UserCheck, UserX, Pencil } from 'lucide-react';
 import { toast } from 'sonner';
 import Link from 'next/link';
@@ -48,13 +49,15 @@ export function PersonActions({
   return (
     <>
       <DropdownMenu>
-        <DropdownMenuTrigger
-          render={
-            <Button variant="ghost" size="sm">
-              <MoreHorizontal className="h-3 w-3" />
-            </Button>
-          }
-        />
+        <Hint label="Más acciones" description="Editar, activar/desactivar">
+          <DropdownMenuTrigger
+            render={
+              <Button variant="ghost" size="sm" aria-label="Más acciones">
+                <MoreHorizontal className="h-3 w-3" />
+              </Button>
+            }
+          />
+        </Hint>
         <DropdownMenuContent align="end">
           <DropdownMenuItem>
             <Link href={`/personas/${personId}/editar`} className="flex items-center gap-2 w-full">
