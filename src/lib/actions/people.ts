@@ -40,7 +40,10 @@ export async function getPeople(filters?: {
   return { rows: data ?? [], total: count ?? 0 };
 }
 
-/** Lista las áreas distintas existentes en la tabla people (para popular un filtro). */
+/** Lista las áreas distintas existentes en la tabla people (para popular un filtro).
+ *  Deduplica case-insensitive ("GROWTH" y "Growth" cuentan como una sola)
+ *  y devuelve la versión Title Case. El filtro usa ilike así que match
+ *  contra cualquier variante en BD igual funciona. */
 export async function getPeopleAreas(): Promise<string[]> {
   const supabase = await createClient();
   const { data, error } = await supabase
@@ -48,14 +51,18 @@ export async function getPeopleAreas(): Promise<string[]> {
     .select('area')
     .order('area');
   if (error) throw new Error(error.message);
-  // Unique + filtrar vacíos. Mantenemos el valor original (sin titleCase)
-  // para que la query a BD funcione con ilike exacto.
-  const unique = new Set<string>();
+  const seen = new Map<string, string>(); // key: lowercase, value: forma normalizada
   for (const row of data ?? []) {
-    const a = (row as { area: string | null }).area?.trim();
-    if (a) unique.add(a);
+    const raw = (row as { area: string | null }).area?.trim();
+    if (!raw) continue;
+    const key = raw.toLowerCase();
+    if (!seen.has(key)) {
+      // Title case simple (la primera ocurrencia define la forma; aplicamos
+      // capitalización inicial para consistencia visual).
+      seen.set(key, raw.charAt(0).toUpperCase() + raw.slice(1).toLowerCase());
+    }
   }
-  return Array.from(unique).sort((x, y) => x.localeCompare(y, 'es'));
+  return Array.from(seen.values()).sort((x, y) => x.localeCompare(y, 'es'));
 }
 
 export async function getActivePeople() {
