@@ -141,16 +141,23 @@ export function AssetForm({ categories }: { categories: Category[] }) {
       const alerts = Array.isArray(result.alerts) ? result.alerts : [];
       if (alerts.length > 0) setAiAlerts(alerts);
 
-      const filledCount = [
-        result.name,
-        parsedValue,
-        result.purchase_date,
-        result.supplier,
-      ].filter(Boolean).length;
+      const specificCount = result.specific_fields
+        ? Object.values(result.specific_fields).filter((v) => v != null && v !== '').length
+        : 0;
+      const filledCount =
+        [result.name, parsedValue, result.purchase_date, result.supplier].filter(Boolean).length +
+        specificCount;
+
+      if (filledCount === 0) {
+        toast.error('La IA no pudo leer datos del documento', {
+          description:
+            alerts[0] ??
+            'Verifica que el documento sea legible (factura nítida, no escaneada al revés). Puedes ingresar los datos manualmente.',
+        });
+        return;
+      }
       toast.success(
-        filledCount > 0
-          ? `Extracción completada: ${filledCount} campo${filledCount === 1 ? '' : 's'} rellenado${filledCount === 1 ? '' : 's'}`
-          : 'Extracción completada — revisa las alertas'
+        `Extracción completada: ${filledCount} campo${filledCount === 1 ? '' : 's'} rellenado${filledCount === 1 ? '' : 's'}`
       );
     } catch (err) {
       const msg = humanizeError(err);

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenAI, type Part } from '@google/genai';
+import { GoogleGenAI, type Part, Type } from '@google/genai';
 import { jsonrepair } from 'jsonrepair';
 import { createClient } from '@/lib/supabase/server';
 
@@ -42,24 +42,47 @@ function checkRateLimit(userId: string): { ok: boolean; retryAfterSec: number } 
   return { ok: true, retryAfterSec: 0 };
 }
 
-const PROMPT = `Analiza las imágenes/PDFs proporcionadas (pueden ser facturas, fotos de productos o fichas técnicas) y extrae la siguiente información para un sistema de inventario de activos empresariales.
+const SYSTEM_INSTRUCTION = `Eres un asistente experto en extraer datos de facturas, fotos de productos y fichas técnicas para un sistema de inventario de activos empresariales colombiano (moneda COP).
 
-Responde SIEMPRE en formato JSON con esta estructura exacta:
-{
-  "name": "nombre descriptivo del activo",
-  "category_suggestion": "Tecnología | Mobiliario | Vehículos | Electrodomésticos",
-  "commercial_value": número o null,
-  "purchase_date": "YYYY-MM-DD" o null,
-  "supplier": "nombre/razón social del proveedor tomado de la factura" o null,
-  "specific_fields": {
-    "marca": "...",
-    "modelo": "...",
-    "serial": "..."
+REGLAS:
+- Lee TODO el documento con atención. Las facturas colombianas suelen tener: razón social del proveedor, NIT, fecha de expedición, descripción del producto, valor unitario, valor total, IVA.
+- "name": describe el activo concreto (ej. "MacBook Pro 14 M3", "Silla ejecutiva ergonómica", no "Equipo" genérico).
+- "commercial_value": el valor TOTAL del activo en pesos colombianos como número entero, sin separadores. Ej: 7500000. Si la factura tiene varios items, suma o usa el más relevante.
+- "purchase_date": fecha de compra/expedición de la factura en formato YYYY-MM-DD.
+- "supplier": razón social del PROVEEDOR (quien vende), no del comprador.
+- "category_suggestion": elige UNA de: "Tecnología", "Mobiliario", "Vehículos", "Electrodomésticos".
+- "specific_fields": objeto con marca, modelo, serial y demás datos específicos del activo.
+- "alerts": lista de campos que NO pudiste extraer y por qué. Si un campo se extrajo correctamente NO debe estar en alerts.
+
+NUNCA devuelvas todos los campos como null sin explicar en alerts. Si el documento no es legible, di explícitamente "documento no legible" en alerts.`;
+
+const PROMPT = `Extrae los datos del/los documento(s) adjunto(s) y devuelve un JSON con la estructura especificada.`;
+
+// Schema estructurado de Gemini — fuerza la forma exacta de la respuesta.
+const RESPONSE_SCHEMA = {
+  type: Type.OBJECT,
+  properties: {
+    name: { type: Type.STRING, nullable: true },
+    category_suggestion: { type: Type.STRING, nullable: true },
+    commercial_value: { type: Type.NUMBER, nullable: true },
+    purchase_date: { type: Type.STRING, nullable: true, description: 'YYYY-MM-DD' },
+    supplier: { type: Type.STRING, nullable: true },
+    specific_fields: {
+      type: Type.OBJECT,
+      nullable: true,
+      properties: {
+        marca: { type: Type.STRING, nullable: true },
+        modelo: { type: Type.STRING, nullable: true },
+        serial: { type: Type.STRING, nullable: true },
+      },
+    },
+    alerts: {
+      type: Type.ARRAY,
+      items: { type: Type.STRING },
+    },
   },
-  "alerts": ["campo X no identificado porque...", ...]
-}
-
-Si no puedes identificar un campo con certeza, inclúyelo en "alerts" explicando por qué no fue posible extraerlo. Responde SOLO con el JSON, sin markdown ni texto adicional.`;
+  required: ['alerts'],
+};
 
 export async function POST(request: Request) {
   try {
@@ -160,9 +183,11 @@ export async function POST(request: Request) {
       model: GEMINI_MODEL,
       contents: [{ role: 'user', parts }],
       config: {
+        systemInstruction: SYSTEM_INSTRUCTION,
         temperature: 0.1, // baja para extracción determinística
         maxOutputTokens: 4000,
-        responseMimeType: 'application/json', // fuerza JSON, evita markdown
+        responseMimeType: 'application/json',
+        responseSchema: RESPONSE_SCHEMA, // Gemini garantiza la forma exacta
         // Gemini 2.5 Flash trae "thinking" activado por defecto y consume
         // tokens del output. Para extracción estructurada no aporta y arruina
         // la respuesta — lo desactivamos.
@@ -227,6 +252,21 @@ export async function POST(request: Request) {
         );
       }
     }
+
+    // Log del resultado para diagnosticar extracciones vacías o parciales.
+    const summary = (() => {
+      const x = extracted as Record<string, unknown>;
+      return {
+        name: typeof x.name === 'string' ? x.name.slice(0, 60) : x.name,
+        category_suggestion: x.category_suggestion,
+        commercial_value: x.commercial_value,
+        purchase_date: x.purchase_date,
+        supplier: typeof x.supplier === 'string' ? x.supplier.slice(0, 60) : x.supplier,
+        specific_fields_keys: x.specific_fields ? Object.keys(x.specific_fields as object) : [],
+        alerts_count: Array.isArray(x.alerts) ? x.alerts.length : 0,
+      };
+    })();
+    console.log('[AI] extracción OK', summary);
 
     return NextResponse.json(extracted);
   } catch (error) {
