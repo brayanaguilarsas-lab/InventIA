@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { GoogleGenAI, type Part } from '@google/genai';
+import { jsonrepair } from 'jsonrepair';
 import { createClient } from '@/lib/supabase/server';
 
 export const maxDuration = 60;
@@ -192,7 +193,7 @@ export async function POST(request: Request) {
     // Aunque pedimos JSON, defendemos parseo si vino con markdown fence.
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
-      console.error('[AI] Sin JSON parseable en respuesta:', responseText.slice(0, 500));
+      console.error('[AI] Sin JSON parseable en respuesta:', responseText.slice(0, 1000));
       return NextResponse.json(
         {
           error: 'La IA no devolvió datos estructurados',
@@ -202,18 +203,29 @@ export async function POST(request: Request) {
       );
     }
 
+    // 1) Intento estricto. 2) Si falla, intento jsonrepair (arregla comillas
+    // tipográficas, trailing commas, fences markdown, comentarios, strings sin
+    // cerrar, etc. — los errores típicos de salida de LLMs).
     let extracted: unknown;
     try {
       extracted = JSON.parse(jsonMatch[0]);
-    } catch (parseErr) {
-      console.error('[AI] JSON inválido:', parseErr, jsonMatch[0].slice(0, 500));
-      return NextResponse.json(
-        {
-          error: 'La IA devolvió un JSON inválido',
-          alerts: ['Reintenta con una imagen más legible o ingresa los datos manualmente'],
-        },
-        { status: 200 }
-      );
+    } catch (strictErr) {
+      try {
+        const repaired = jsonrepair(jsonMatch[0]);
+        extracted = JSON.parse(repaired);
+        console.warn('[AI] JSON requirió jsonrepair — respuesta original:', jsonMatch[0].slice(0, 500));
+      } catch (repairErr) {
+        console.error('[AI] JSON irrecuperable. Strict:', strictErr);
+        console.error('[AI] Repair:', repairErr);
+        console.error('[AI] Bruto:', jsonMatch[0].slice(0, 1500));
+        return NextResponse.json(
+          {
+            error: 'La IA devolvió un JSON inválido',
+            alerts: ['Reintenta con una imagen más legible o ingresa los datos manualmente'],
+          },
+          { status: 200 }
+        );
+      }
     }
 
     return NextResponse.json(extracted);
