@@ -7,6 +7,7 @@ import { revalidatePath } from 'next/cache';
 
 export async function getPeople(filters?: {
   search?: string;
+  area?: string;
   page?: number;
   pageSize?: number;
 }) {
@@ -27,9 +28,34 @@ export async function getPeople(filters?: {
     query = query.or(`full_name.ilike.${pattern},id_number.ilike.${pattern},email.ilike.${pattern}`);
   }
 
+  if (filters?.area && filters.area !== 'todas') {
+    // Match case-insensitive contra el valor crudo en BD (que puede estar
+    // en MAYÚSCULAS, minúsculas o título). El UI muestra titleCase pero
+    // pasa el valor original.
+    query = query.ilike('area', filters.area);
+  }
+
   const { data, error, count } = await query;
   if (error) throw new Error(error.message);
   return { rows: data ?? [], total: count ?? 0 };
+}
+
+/** Lista las áreas distintas existentes en la tabla people (para popular un filtro). */
+export async function getPeopleAreas(): Promise<string[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase
+    .from('people')
+    .select('area')
+    .order('area');
+  if (error) throw new Error(error.message);
+  // Unique + filtrar vacíos. Mantenemos el valor original (sin titleCase)
+  // para que la query a BD funcione con ilike exacto.
+  const unique = new Set<string>();
+  for (const row of data ?? []) {
+    const a = (row as { area: string | null }).area?.trim();
+    if (a) unique.add(a);
+  }
+  return Array.from(unique).sort((x, y) => x.localeCompare(y, 'es'));
 }
 
 export async function getActivePeople() {

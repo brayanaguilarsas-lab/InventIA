@@ -4,37 +4,61 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Hint } from '@/components/ui/hint';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
+import { titleCase } from '@/lib/format';
 
-export function PeopleSearch() {
+export function PeopleSearch({ areas }: { areas: string[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialSearch = searchParams.get('search') ?? '';
   const [search, setSearch] = useState(initialSearch);
 
-  // Guarda el último valor pusheado para no re-disparar la navegación
-  // si el efecto se vuelve a ejecutar por cambios externos (p.ej. el
-  // usuario fue a página 2 y la URL cambió, pero `search` no).
   const lastPushedRef = useRef(initialSearch);
+
+  function pushParams(updates: Record<string, string | null>) {
+    const params = new URLSearchParams(window.location.search);
+    for (const [key, value] of Object.entries(updates)) {
+      if (value === null || value === '' || value === 'todas') {
+        params.delete(key);
+      } else {
+        params.set(key, value);
+      }
+    }
+    // Cualquier cambio de filtro resetea la paginación.
+    params.delete('page');
+    const qs = params.toString();
+    router.push(qs ? `/personas?${qs}` : '/personas');
+  }
 
   useEffect(() => {
     if (search === lastPushedRef.current) return;
     const t = setTimeout(() => {
       lastPushedRef.current = search;
-      const params = new URLSearchParams(window.location.search);
-      if (search) params.set('search', search);
-      else params.delete('search');
-      // Cambiar el término de búsqueda resetea la paginación.
-      params.delete('page');
-      const qs = params.toString();
-      router.push(qs ? `/personas?${qs}` : '/personas');
+      pushParams({ search });
     }, 300);
     return () => clearTimeout(t);
-  }, [search, router]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
+
+  const currentArea = searchParams.get('area') ?? 'todas';
+  const hasFilters = search !== '' || currentArea !== 'todas';
+
+  function clearAll() {
+    setSearch('');
+    lastPushedRef.current = '';
+    router.push('/personas');
+  }
 
   return (
-    <div className="flex items-center gap-3">
+    <div className="flex flex-wrap items-center gap-3">
       <Hint label="Búsqueda de personas" description="Por nombre, número de identificación o correo">
         <Input
           placeholder="Buscar por nombre, identificación o correo..."
@@ -43,19 +67,29 @@ export function PeopleSearch() {
           className="max-w-md"
         />
       </Hint>
-      {search && (
-        <Hint label="Limpiar búsqueda">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => {
-              setSearch('');
-              lastPushedRef.current = '';
-              router.push('/personas');
-            }}
-          >
+      <Hint label="Filtrar por área" description="Growth, Operaciones, TI, Admin…">
+        <Select
+          value={currentArea}
+          onValueChange={(v) => pushParams({ area: v ?? 'todas' })}
+        >
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Área" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todas">Todas las áreas</SelectItem>
+            {areas.map((area) => (
+              <SelectItem key={area} value={area}>
+                {titleCase(area)}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Hint>
+      {hasFilters && (
+        <Hint label="Quitar todos los filtros activos">
+          <Button variant="ghost" size="sm" onClick={clearAll}>
             <X className="mr-2 h-3 w-3" />
-            Limpiar
+            Limpiar filtros
           </Button>
         </Hint>
       )}

@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { getPeople } from '@/lib/actions/people';
+import { getPeople, getPeopleAreas } from '@/lib/actions/people';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,15 +24,19 @@ const PAGE_SIZE = 25;
 export default async function PeoplePage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; page?: string }>;
+  searchParams: Promise<{ search?: string; area?: string; page?: string }>;
 }) {
   const params = await searchParams;
   const page = Math.max(1, Number(params.page ?? 1));
-  const { rows: people, total } = await getPeople({
-    search: params.search,
-    page,
-    pageSize: PAGE_SIZE,
-  });
+  const [{ rows: people, total }, areas] = await Promise.all([
+    getPeople({
+      search: params.search,
+      area: params.area,
+      page,
+      pageSize: PAGE_SIZE,
+    }),
+    getPeopleAreas(),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -54,7 +58,7 @@ export default async function PeoplePage({
         </div>
       </div>
 
-      <PeopleSearch />
+      <PeopleSearch areas={areas} />
 
       <Card>
         <CardHeader>
