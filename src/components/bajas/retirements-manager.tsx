@@ -30,6 +30,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Hint } from '@/components/ui/hint';
 import { Plus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import { createRetirement } from '@/lib/actions/retirements';
@@ -138,9 +139,11 @@ export function RetirementsManager({
           </p>
         </div>
         <Dialog open={open} onOpenChange={handleOpenChange}>
-          <DialogTrigger
-            render={<Button variant="destructive"><Plus className="mr-2 h-4 w-4" />Dar de Baja</Button>}
-          />
+          <Hint label="Registrar baja de un activo" description="Requiere motivo, destino y autorización">
+            <DialogTrigger
+              render={<Button variant="destructive"><Plus className="mr-2 h-4 w-4" />Dar de Baja</Button>}
+            />
+          </Hint>
           <DialogContent>
             <DialogHeader>
               <DialogTitle>Dar de Baja un Activo</DialogTitle>

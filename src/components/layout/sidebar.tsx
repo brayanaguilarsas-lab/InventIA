@@ -18,21 +18,69 @@ import { cn } from '@/lib/utils';
 import { Separator } from '@/components/ui/separator';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
+import { Hint } from '@/components/ui/hint';
 import { UserNav } from '@/components/layout/user-nav';
 
+interface NavItem {
+  name: string;
+  href: string;
+  icon: React.ComponentType<{ className?: string }>;
+  description: string;
+}
+
 // Activos primero (core del sistema); Dashboard después (resumen).
-const navigation = [
-  { name: 'Activos', href: '/activos', icon: Package },
-  { name: 'Personas', href: '/personas', icon: Users },
-  { name: 'Asignaciones', href: '/asignaciones', icon: ArrowLeftRight },
-  { name: 'Mantenimientos', href: '/mantenimientos', icon: Wrench },
-  { name: 'Bajas', href: '/bajas', icon: XCircle },
-  { name: 'Dashboard', href: '/reportes', icon: LayoutDashboard },
+const navigation: NavItem[] = [
+  {
+    name: 'Activos',
+    href: '/activos',
+    icon: Package,
+    description: 'Inventario completo de equipos. Crear, editar y consultar activos.',
+  },
+  {
+    name: 'Personas',
+    href: '/personas',
+    icon: Users,
+    description: 'Empleados y contratistas que pueden recibir activos.',
+  },
+  {
+    name: 'Asignaciones',
+    href: '/asignaciones',
+    icon: ArrowLeftRight,
+    description: 'Entrega de activos a personas. Cada entrega genera acta PDF.',
+  },
+  {
+    name: 'Mantenimientos',
+    href: '/mantenimientos',
+    icon: Wrench,
+    description: 'Activos enviados a reparación preventiva o correctiva.',
+  },
+  {
+    name: 'Bajas',
+    href: '/bajas',
+    icon: XCircle,
+    description: 'Activos dados de baja con motivo, destino y autorización.',
+  },
+  {
+    name: 'Dashboard',
+    href: '/reportes',
+    icon: LayoutDashboard,
+    description: 'Resumen ejecutivo, valor del inventario y alertas de pólizas.',
+  },
 ];
 
-const secondaryNavigation = [
-  { name: 'Auditoría', href: '/auditoria', icon: ClipboardList },
-  { name: 'Configuración', href: '/configuracion', icon: Settings },
+const secondaryNavigation: NavItem[] = [
+  {
+    name: 'Auditoría',
+    href: '/auditoria',
+    icon: ClipboardList,
+    description: 'Bitácora inmutable: quién hizo qué y cuándo.',
+  },
+  {
+    name: 'Configuración',
+    href: '/configuracion',
+    icon: Settings,
+    description: 'Categorías de activos y plantillas de actas/correos.',
+  },
 ];
 
 interface SidebarProps {
@@ -51,23 +99,24 @@ function SidebarContent({
 }) {
   const pathname = usePathname();
 
-  const renderItem = (item: { name: string; href: string; icon: React.ComponentType<{ className?: string }> }) => {
+  const renderItem = (item: NavItem) => {
     const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
     return (
-      <Link
-        key={item.name}
-        href={item.href}
-        onClick={onNavigate}
-        className={cn(
-          'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-          isActive
-            ? 'bg-primary text-primary-foreground'
-            : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
-        )}
-      >
-        <item.icon className="h-4 w-4" />
-        {item.name}
-      </Link>
+      <Hint key={item.name} label={item.name} description={item.description} side="right">
+        <Link
+          href={item.href}
+          onClick={onNavigate}
+          className={cn(
+            'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+            isActive
+              ? 'bg-primary text-primary-foreground'
+              : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+          )}
+        >
+          <item.icon className="h-4 w-4" />
+          {item.name}
+        </Link>
+      </Hint>
     );
   };
 
@@ -113,13 +162,15 @@ export function Sidebar({ userEmail, userFullName }: SidebarProps) {
           <span className="text-base font-semibold">InventIA</span>
         </div>
         <Sheet open={open} onOpenChange={setOpen}>
-          <SheetTrigger
-            render={
-              <Button variant="ghost" size="icon-sm" aria-label="Abrir menú">
-                <Menu className="h-5 w-5" />
-              </Button>
-            }
-          />
+          <Hint label="Abrir menú" side="bottom">
+            <SheetTrigger
+              render={
+                <Button variant="ghost" size="icon-sm" aria-label="Abrir menú">
+                  <Menu className="h-5 w-5" />
+                </Button>
+              }
+            />
+          </Hint>
           <SheetContent side="left" className="p-0 w-64 flex flex-col">
             <SidebarContent
               onNavigate={() => setOpen(false)}

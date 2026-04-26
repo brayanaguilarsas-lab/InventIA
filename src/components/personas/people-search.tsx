@@ -3,6 +3,7 @@
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
+import { Hint } from '@/components/ui/hint';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 
@@ -34,24 +35,28 @@ export function PeopleSearch() {
 
   return (
     <div className="flex items-center gap-3">
-      <Input
-        placeholder="Buscar por nombre, identificación o correo..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="max-w-md"
-      />
+      <Hint label="Búsqueda de personas" description="Por nombre, número de identificación o correo">
+        <Input
+          placeholder="Buscar por nombre, identificación o correo..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-md"
+        />
+      </Hint>
       {search && (
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => {
-            setSearch('');
-            router.push('/personas');
-          }}
-        >
-          <X className="mr-2 h-3 w-3" />
-          Limpiar
-        </Button>
+        <Hint label="Limpiar búsqueda">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setSearch('');
+              router.push('/personas');
+            }}
+          >
+            <X className="mr-2 h-3 w-3" />
+            Limpiar
+          </Button>
+        </Hint>
       )}
     </div>
   );

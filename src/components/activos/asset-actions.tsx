@@ -26,6 +26,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Hint } from '@/components/ui/hint';
 import { Pencil, ArrowLeftRight, Wrench, XCircle, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
 import type { AssetStatus, RetirementReason, FinalDestination } from '@/types/database';
@@ -39,12 +40,14 @@ interface AssetActionProps {
 export function AssetActions({ assetId, status }: AssetActionProps) {
   return (
     <div className="flex flex-wrap gap-2">
-      <Link href={`/activos/${assetId}/editar`}>
-        <Button variant="outline" size="sm">
-          <Pencil className="mr-2 h-3 w-3" />
-          Editar
-        </Button>
-      </Link>
+      <Hint label="Editar activo" description="Modificar nombre, valor, póliza, campos específicos…">
+        <Link href={`/activos/${assetId}/editar`}>
+          <Button variant="outline" size="sm">
+            <Pencil className="mr-2 h-3 w-3" />
+            Editar
+          </Button>
+        </Link>
+      </Hint>
 
       {status === 'disponible' && (
         <>
@@ -109,13 +112,15 @@ function QuickAssignDialog({ assetId }: { assetId: string }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button variant="outline" size="sm">
-            <ArrowLeftRight className="mr-2 h-3 w-3" />Asignar
-          </Button>
-        }
-      />
+      <Hint label="Asignar a una persona" description="Genera el acta y la envía por correo">
+        <DialogTrigger
+          render={
+            <Button variant="outline" size="sm">
+              <ArrowLeftRight className="mr-2 h-3 w-3" />Asignar
+            </Button>
+          }
+        />
+      </Hint>
       <DialogContent>
         <DialogHeader><DialogTitle>Asignar Activo</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -180,13 +185,15 @@ function QuickMaintenanceDialog({ assetId }: { assetId: string }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button variant="outline" size="sm">
-            <Wrench className="mr-2 h-3 w-3" />Mantenimiento
-          </Button>
-        }
-      />
+      <Hint label="Enviar a mantenimiento" description="Activo sale del inventario activo hasta el retorno">
+        <DialogTrigger
+          render={
+            <Button variant="outline" size="sm">
+              <Wrench className="mr-2 h-3 w-3" />Mantenimiento
+            </Button>
+          }
+        />
+      </Hint>
       <DialogContent>
         <DialogHeader><DialogTitle>Enviar a Mantenimiento</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
@@ -273,13 +280,15 @@ function QuickRetireDialog({ assetId }: { assetId: string }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={
-          <Button variant="destructive" size="sm">
-            <XCircle className="mr-2 h-3 w-3" />Dar de Baja
-          </Button>
-        }
-      />
+      <Hint label="Dar de baja el activo" description="Acción permanente. Requiere motivo y autorización">
+        <DialogTrigger
+          render={
+            <Button variant="destructive" size="sm">
+              <XCircle className="mr-2 h-3 w-3" />Dar de Baja
+            </Button>
+          }
+        />
+      </Hint>
       <DialogContent>
         <DialogHeader><DialogTitle>Dar de Baja</DialogTitle></DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">

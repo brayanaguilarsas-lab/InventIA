@@ -112,9 +112,11 @@ export function CategoriesManager({ categories }: { categories: CategoryRow[] })
             <CardDescription>Define las categorías y sus campos específicos</CardDescription>
           </div>
           <Dialog open={createOpen} onOpenChange={setCreateOpen}>
-            <DialogTrigger
-              render={<Button size="sm"><Plus className="mr-2 h-4 w-4" />Nueva Categoría</Button>}
-            />
+            <Hint label="Crear nueva categoría" description="Tecnología, mobiliario, vehículos…">
+              <DialogTrigger
+                render={<Button size="sm"><Plus className="mr-2 h-4 w-4" />Nueva Categoría</Button>}
+              />
+            </Hint>
             <DialogContent>
               <DialogHeader>
                 <DialogTitle>Nueva Categoría</DialogTitle>

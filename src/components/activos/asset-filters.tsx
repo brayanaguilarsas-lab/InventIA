@@ -10,6 +10,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Hint } from '@/components/ui/hint';
 import type { Category } from '@/types/database';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
@@ -57,48 +58,56 @@ export function AssetFilters({ categories }: { categories: Category[] }) {
 
   return (
     <div className="flex flex-wrap items-center gap-3">
-      <Input
-        placeholder="Buscar por nombre o código..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="max-w-xs"
-      />
-      <Select
-        value={currentStatus}
-        onValueChange={(v) => updateParams('status', v ?? 'todos')}
-      >
-        <SelectTrigger className="w-48">
-          <SelectValue placeholder="Estado" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="todos">Todos los estados</SelectItem>
-          <SelectItem value="disponible">Disponible</SelectItem>
-          <SelectItem value="asignado">Asignado</SelectItem>
-          <SelectItem value="mantenimiento">En Mantenimiento</SelectItem>
-          <SelectItem value="baja">Dado de Baja</SelectItem>
-        </SelectContent>
-      </Select>
-      <Select
-        value={currentCategory}
-        onValueChange={(v) => updateParams('category_id', v ?? 'todos')}
-      >
-        <SelectTrigger className="w-48">
-          <SelectValue placeholder="Categoría" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="todos">Todas las categorías</SelectItem>
-          {categories.map((cat) => (
-            <SelectItem key={cat.id} value={cat.id}>
-              {cat.name}
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
+      <Hint label="Búsqueda" description="Filtra por código o nombre del activo">
+        <Input
+          placeholder="Buscar por nombre o código..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="max-w-xs"
+        />
+      </Hint>
+      <Hint label="Filtrar por estado" description="Disponible, asignado, mantenimiento o baja">
+        <Select
+          value={currentStatus}
+          onValueChange={(v) => updateParams('status', v ?? 'todos')}
+        >
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Estado" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todos los estados</SelectItem>
+            <SelectItem value="disponible">Disponible</SelectItem>
+            <SelectItem value="asignado">Asignado</SelectItem>
+            <SelectItem value="mantenimiento">En Mantenimiento</SelectItem>
+            <SelectItem value="baja">Dado de Baja</SelectItem>
+          </SelectContent>
+        </Select>
+      </Hint>
+      <Hint label="Filtrar por categoría" description="Tecnología, mobiliario, vehículos…">
+        <Select
+          value={currentCategory}
+          onValueChange={(v) => updateParams('category_id', v ?? 'todos')}
+        >
+          <SelectTrigger className="w-48">
+            <SelectValue placeholder="Categoría" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="todos">Todas las categorías</SelectItem>
+            {categories.map((cat) => (
+              <SelectItem key={cat.id} value={cat.id}>
+                {cat.name}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </Hint>
       {hasFilters && (
-        <Button variant="ghost" size="sm" onClick={clearAll}>
-          <X className="mr-2 h-3 w-3" />
-          Limpiar filtros
-        </Button>
+        <Hint label="Quitar todos los filtros activos">
+          <Button variant="ghost" size="sm" onClick={clearAll}>
+            <X className="mr-2 h-3 w-3" />
+            Limpiar filtros
+          </Button>
+        </Hint>
       )}
     </div>
   );

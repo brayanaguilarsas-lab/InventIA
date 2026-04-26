@@ -22,6 +22,7 @@ import {
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
+import { Hint } from '@/components/ui/hint';
 import { Undo2, Loader2, AlertTriangle } from 'lucide-react';
 import { toast } from 'sonner';
 import type { ReturnCondition } from '@/types/database';
@@ -61,9 +62,11 @@ export function AssignmentActions({ assignmentId }: { assignmentId: string }) {
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger
-        render={<Button variant="outline" size="sm"><Undo2 className="mr-2 h-3 w-3" />Devolver</Button>}
-      />
+      <Hint label="Registrar devolución" description="Cierra la asignación y genera acta de paz y salvo">
+        <DialogTrigger
+          render={<Button variant="outline" size="sm"><Undo2 className="mr-2 h-3 w-3" />Devolver</Button>}
+        />
+      </Hint>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Registrar Devolución</DialogTitle>

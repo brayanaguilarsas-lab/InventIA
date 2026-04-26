@@ -41,6 +41,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { Hint } from '@/components/ui/hint';
 import { Plus, Loader2, CheckCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { createMaintenance, returnMaintenance } from '@/lib/actions/maintenances';
@@ -164,9 +165,11 @@ export function MaintenancesManager({
           </p>
         </div>
         <Dialog open={newOpen} onOpenChange={setNewOpen}>
-          <DialogTrigger
-            render={<Button><Plus className="mr-2 h-4 w-4" />Nuevo Mantenimiento</Button>}
-          />
+          <Hint label="Enviar activo a mantenimiento" description="Reparación preventiva o correctiva">
+            <DialogTrigger
+              render={<Button><Plus className="mr-2 h-4 w-4" />Nuevo Mantenimiento</Button>}
+            />
+          </Hint>
           <DialogContent>
             <DialogHeader><DialogTitle>Enviar a Mantenimiento</DialogTitle></DialogHeader>
             <form onSubmit={handleCreate} className="space-y-4">
@@ -272,9 +275,11 @@ export function MaintenancesManager({
                   <TableCell>{m.reason}</TableCell>
                   <TableCell className="font-mono text-sm">{m.sent_at}</TableCell>
                   <TableCell>
-                    <Button variant="outline" size="sm" onClick={() => openReturnDialog(m.id)}>
-                      <CheckCircle className="mr-2 h-3 w-3" />Retorno
-                    </Button>
+                    <Hint label="Registrar retorno" description="Marca como funcional o no funcional">
+                      <Button variant="outline" size="sm" onClick={() => openReturnDialog(m.id)}>
+                        <CheckCircle className="mr-2 h-3 w-3" />Retorno
+                      </Button>
+                    </Hint>
                   </TableCell>
                 </TableRow>
               ))}

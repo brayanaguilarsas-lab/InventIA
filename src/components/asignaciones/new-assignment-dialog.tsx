@@ -22,6 +22,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Plus, Loader2 } from 'lucide-react';
 import { toast } from 'sonner';
+import { Hint } from '@/components/ui/hint';
 import type { Person } from '@/types/database';
 import { humanizeError } from '@/lib/errors';
 
@@ -79,9 +80,11 @@ export function NewAssignmentDialog({
 
   return (
     <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger
-        render={<Button><Plus className="mr-2 h-4 w-4" />Nueva Asignación</Button>}
-      />
+      <Hint label="Nueva asignación" description="Selecciona un activo disponible y su responsable">
+        <DialogTrigger
+          render={<Button><Plus className="mr-2 h-4 w-4" />Nueva Asignación</Button>}
+        />
+      </Hint>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Nueva Asignación de Activo</DialogTitle>
