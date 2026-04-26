@@ -54,15 +54,37 @@ export async function sendActaEmail({
     return null;
   }
 
-  const allRecipients = [to, ...ADMIN_EMAILS].filter(
-    (email, index, self) => self.indexOf(email) === index
-  );
+  // Modo de prueba: si RESEND_TEST_REDIRECT_TO está configurada, redirige
+  // TODOS los correos a esa dirección con un prefijo en el asunto que
+  // indica el destinatario original. Sirve para validar el flujo end-to-end
+  // mientras se verifica el dominio en resend.com/domains. Para volver a
+  // producción real, simplemente elimina la env var en Vercel.
+  const testRedirect = (process.env.RESEND_TEST_REDIRECT_TO ?? '').trim();
+  let recipients: string[];
+  let finalSubject: string;
+  let finalHtml = htmlBody;
+
+  if (testRedirect) {
+    recipients = [testRedirect];
+    finalSubject = `[TEST → ${to}] ${subject}`;
+    finalHtml =
+      `<div style="background:#fef3c7;border:1px solid #f59e0b;color:#92400e;padding:10px 14px;margin:0 0 16px;border-radius:6px;font-family:Arial,sans-serif;font-size:12px;">` +
+      `<strong>Modo de prueba</strong>: este correo iba dirigido a <code>${esc(to)}</code> pero fue redirigido a <code>${esc(testRedirect)}</code> porque el dominio aún no está verificado en Resend.` +
+      `</div>` +
+      htmlBody;
+    console.log(`[Email] TEST mode — redirigiendo "${subject}" de ${to} → ${testRedirect}`);
+  } else {
+    recipients = [to, ...ADMIN_EMAILS].filter(
+      (email, index, self) => self.indexOf(email) === index
+    );
+    finalSubject = subject;
+  }
 
   const { data, error } = await getResend().emails.send({
     from: FROM_EMAIL,
-    to: allRecipients,
-    subject,
-    html: htmlBody,
+    to: recipients,
+    subject: finalSubject,
+    html: finalHtml,
     attachments: attachments.map((a) => ({
       filename: a.filename,
       content: Buffer.from(a.bytes),
