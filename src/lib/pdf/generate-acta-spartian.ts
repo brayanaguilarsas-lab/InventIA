@@ -132,7 +132,7 @@ export async function generateActaSpartianPDF(data: ActaSpartianData): Promise<U
   if (data.ram) bullet(`Capacidad de memoria RAM: ${data.ram}`);
   if (data.storage) bullet(`Capacidad del disco duro: ${data.storage}`);
   if (data.accessories) bullet(`Accesorios incluidos: ${data.accessories}`);
-  bullet('Estado de entrega: Se entrega un equipo en óptimas condiciones de software y físicas, sin signos de uso, rayones ni defectos estéticos.');
+  bullet('Estado de entrega: Se entrega un equipo nuevo en todas sus características de software y físicas, sin signos de uso, rayones o defectos estéticos.');
   bullet(`Valor comercial estimado: ${formatCurrency(data.commercialValue)}`);
   spacer(4);
   writeWrapped('El equipo es propiedad de LA EMPRESA hasta que se cumplan las condiciones establecidas en este documento.');
@@ -185,8 +185,8 @@ export async function generateActaSpartianPDF(data: ActaSpartianData): Promise<U
 
   // 9. Permanencia
   heading('9. Permanencia y transferencia de propiedad');
-  bullet('Si EL USUARIO cumple un (1) año continuo de uso del equipo y mantiene un desempeño adecuado, podrá quedarse con el equipo como beneficio.');
-  bullet('Si EL USUARIO se retira antes de cumplir un (1) año deberá pagar el saldo total pendiente a la fecha para la cancelación total del equipo y este queda de su propiedad.');
+  bullet('Si EL USUARIO cumple dos (2) años continuos de uso del equipo y mantiene un desempeño adecuado, podrá quedarse con el equipo como beneficio.');
+  bullet('Si EL USUARIO se retira antes de cumplir los dos años, deberá devolver el equipo en excelentes condiciones de funcionamiento y presentación.');
   bullet('LA EMPRESA evaluará el estado del equipo antes de autorizar su transferencia definitiva.');
 
   // 10. Confidencialidad
