@@ -1,13 +1,18 @@
 import { Settings } from 'lucide-react';
 import { createClient } from '@/lib/supabase/server';
 import { CategoriesManager, type CategoryRow } from '@/components/configuracion/categories-manager';
+import { FormatsManager } from '@/components/configuracion/formats-manager';
+import { listTemplates } from '@/lib/templates';
 
 export default async function ConfigPage() {
   const supabase = await createClient();
-  const { data } = await supabase
-    .from('categories')
-    .select('id, name, code_prefix, fields_schema')
-    .order('name');
+  const [{ data }, templates] = await Promise.all([
+    supabase
+      .from('categories')
+      .select('id, name, code_prefix, fields_schema')
+      .order('name'),
+    listTemplates(),
+  ]);
   const categories = (data ?? []) as CategoryRow[];
 
   return (
@@ -17,6 +22,7 @@ export default async function ConfigPage() {
         <h1 className="text-2xl font-semibold">Configuración</h1>
       </div>
       <CategoriesManager categories={categories} />
+      <FormatsManager templates={templates} />
     </div>
   );
 }

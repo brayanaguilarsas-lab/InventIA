@@ -3,7 +3,7 @@ import { timingSafeEqual } from 'crypto';
 import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { generateActaPDF } from '@/lib/pdf/generate-acta';
-import { sendActaEmail, buildEntregaEmailHtml, buildDevolucionEmailHtml } from '@/lib/email';
+import { sendActaEmail, buildEntregaEmail, buildDevolucionEmail } from '@/lib/email';
 import { uploadActaToDrive } from '@/lib/google-drive';
 
 export const maxDuration = 60;
@@ -132,15 +132,18 @@ export async function POST(request: Request) {
 
       // Send email
       try {
+        const { subject, html } = await buildEntregaEmail({
+          personName: person.full_name,
+          personIdType: person.id_type,
+          personIdNumber: person.id_number,
+          assetCode: asset.code,
+          assetName: asset.name,
+          date: assignment.assigned_at,
+        });
         await sendActaEmail({
           to: person.email,
-          subject: `Acta de Entrega — ${asset.code} (${asset.name})`,
-          htmlBody: buildEntregaEmailHtml({
-            personName: person.full_name,
-            assetCode: asset.code,
-            assetName: asset.name,
-            date: assignment.assigned_at,
-          }),
+          subject,
+          htmlBody: html,
           pdfBytes,
           pdfFilename: `Acta_Entrega_${asset.code}.pdf`,
         });
@@ -186,16 +189,19 @@ export async function POST(request: Request) {
 
       // Send email
       try {
+        const { subject, html } = await buildDevolucionEmail({
+          personName: person.full_name,
+          personIdType: person.id_type,
+          personIdNumber: person.id_number,
+          assetCode: asset.code,
+          assetName: asset.name,
+          date: assignment.returned_at ?? new Date().toISOString(),
+          condition: assignment.return_condition ?? 'bueno',
+        });
         await sendActaEmail({
           to: person.email,
-          subject: `Acta de Devolución y Paz y Salvo — ${asset.code} (${asset.name})`,
-          htmlBody: buildDevolucionEmailHtml({
-            personName: person.full_name,
-            assetCode: asset.code,
-            assetName: asset.name,
-            date: assignment.returned_at ?? new Date().toISOString(),
-            condition: assignment.return_condition ?? 'bueno',
-          }),
+          subject,
+          htmlBody: html,
           pdfBytes,
           pdfFilename: `Acta_Devolucion_${asset.code}.pdf`,
         });

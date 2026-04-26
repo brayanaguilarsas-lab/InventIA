@@ -11,7 +11,7 @@ import { logAudit } from '@/lib/audit';
 import { revalidatePath } from 'next/cache';
 import { generateActaPDF } from '@/lib/pdf/generate-acta';
 import { generateActaSpartianPDF } from '@/lib/pdf/generate-acta-spartian';
-import { sendActaEmail, buildEntregaEmailHtml, buildDevolucionEmailHtml } from '@/lib/email';
+import { sendActaEmail, buildEntregaEmail, buildDevolucionEmail } from '@/lib/email';
 import { uploadActaToDrive } from '@/lib/google-drive';
 
 export async function getAssignments(activeOnly = false) {
@@ -161,17 +161,21 @@ export async function createAssignment(input: CreateAssignmentInput) {
       }
     }
 
-    // Send email
+    // Send email (la plantilla viene de DB con fallback al hardcoded)
     try {
+      const { subject: tplSubject, html } = await buildEntregaEmail({
+        personName: person.full_name,
+        personIdType: person.id_type,
+        personIdNumber: person.id_number,
+        assetCode: fullAsset.code,
+        assetName: fullAsset.name,
+        date: data.assigned_at,
+      });
       await sendActaEmail({
         to: person.email,
-        subject: actaSubject,
-        htmlBody: buildEntregaEmailHtml({
-          personName: person.full_name,
-          assetCode: fullAsset.code,
-          assetName: fullAsset.name,
-          date: data.assigned_at,
-        }),
+        // Para Spartian conservamos el subject específico; para entrega normal usamos el de la plantilla.
+        subject: person.is_spartian ? actaSubject : tplSubject,
+        htmlBody: html,
         pdfBytes,
         pdfFilename: `${actaPrefix}_${fullAsset.code}.pdf`,
       });
@@ -362,16 +366,19 @@ export async function returnAssignment(assignmentId: string, input: ReturnAssign
     }
 
     try {
+      const { subject, html } = await buildDevolucionEmail({
+        personName: person.full_name,
+        personIdType: person.id_type,
+        personIdNumber: person.id_number,
+        assetCode: fullAsset.code,
+        assetName: fullAsset.name,
+        date: data.returned_at ?? new Date().toISOString(),
+        condition: parsed.return_condition,
+      });
       await sendActaEmail({
         to: person.email,
-        subject: `Acta de Devolución y Paz y Salvo — ${fullAsset.code} (${fullAsset.name})`,
-        htmlBody: buildDevolucionEmailHtml({
-          personName: person.full_name,
-          assetCode: fullAsset.code,
-          assetName: fullAsset.name,
-          date: data.returned_at ?? new Date().toISOString(),
-          condition: parsed.return_condition,
-        }),
+        subject,
+        htmlBody: html,
         pdfBytes,
         pdfFilename: `Acta_Devolucion_${fullAsset.code}.pdf`,
       });

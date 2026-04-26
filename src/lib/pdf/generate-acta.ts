@@ -1,4 +1,5 @@
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
+import { getTemplate, renderTemplate } from '@/lib/templates';
 
 interface ActaEntregaData {
   tipo: 'entrega' | 'devolucion';
@@ -180,15 +181,21 @@ export async function generateActaPDF(data: ActaEntregaData): Promise<Uint8Array
 
     y -= lineHeight;
 
-    // Paz y salvo text
+    // Paz y salvo text (plantilla editable desde Configuración → Formatos)
     drawText('PAZ Y SALVO', margin, y, { font: fontBold, size: 11 });
     y -= lineHeight;
     drawLine(y);
     y -= lineHeight;
 
-    const pazText = `Se certifica que ${data.personName}, identificado(a) con ${data.personIdType} ${data.personIdNumber}, ` +
-      `ha realizado la devolución del activo ${data.assetCode} (${data.assetName}) a Saleads Corp, ` +
-      `quedando a paz y salvo respecto a este activo.`;
+    const pazTpl = await getTemplate('pdf_paz_salvo');
+    const pazText = renderTemplate(pazTpl.body, {
+      personName: data.personName,
+      personIdType: data.personIdType,
+      personIdNumber: data.personIdNumber,
+      assetCode: data.assetCode,
+      assetName: data.assetName,
+      date: formatDate(data.date),
+    });
 
     const pazWords = pazText.split(' ');
     let pazLine = '';
@@ -210,16 +217,22 @@ export async function generateActaPDF(data: ActaEntregaData): Promise<Uint8Array
     y -= lineHeight;
   }
 
-  // Responsibility clause (for entrega)
+  // Responsibility clause (plantilla editable desde Configuración → Formatos)
   if (data.tipo === 'entrega') {
     drawText('COMPROMISO DE RESPONSABILIDAD', margin, y, { font: fontBold, size: 11 });
     y -= lineHeight;
     drawLine(y);
     y -= lineHeight;
 
-    const clause = `${data.personName}, identificado(a) con ${data.personIdType} ${data.personIdNumber}, ` +
-      `declara recibir el activo ${data.assetCode} (${data.assetName}) en las condiciones descritas, ` +
-      `comprometiéndose a darle uso adecuado y a devolverlo en buen estado cuando sea requerido por Saleads Corp.`;
+    const clauseTpl = await getTemplate('pdf_clausula_entrega');
+    const clause = renderTemplate(clauseTpl.body, {
+      personName: data.personName,
+      personIdType: data.personIdType,
+      personIdNumber: data.personIdNumber,
+      assetCode: data.assetCode,
+      assetName: data.assetName,
+      date: formatDate(data.date),
+    });
 
     const clauseWords = clause.split(' ');
     let clauseLine = '';

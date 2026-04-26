@@ -1,4 +1,5 @@
 import { Resend } from 'resend';
+import { getTemplate, renderTemplate } from '@/lib/templates';
 
 function getResend() {
   return new Resend(process.env.RESEND_API_KEY);
@@ -74,80 +75,56 @@ export async function sendActaEmail({
   return data;
 }
 
-export function buildEntregaEmailHtml(params: {
+export interface BuiltEmail {
+  subject: string;
+  html: string;
+}
+
+export async function buildEntregaEmail(params: {
   personName: string;
+  personIdType?: string;
+  personIdNumber?: string;
   assetCode: string;
   assetName: string;
   date: string;
-}) {
-  return `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <h2 style="color: #1a1a1a; border-bottom: 2px solid #e5e5e5; padding-bottom: 10px;">
-        Acta de Entrega de Activo
-      </h2>
-      <p>Estimado/a <strong>${esc(params.personName)}</strong>,</p>
-      <p>Se le ha asignado el siguiente activo de Saleads Corp:</p>
-      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-        <tr style="background: #f5f5f5;">
-          <td style="padding: 8px 12px; font-weight: bold;">Código</td>
-          <td style="padding: 8px 12px;">${esc(params.assetCode)}</td>
-        </tr>
-        <tr>
-          <td style="padding: 8px 12px; font-weight: bold;">Activo</td>
-          <td style="padding: 8px 12px;">${esc(params.assetName)}</td>
-        </tr>
-        <tr style="background: #f5f5f5;">
-          <td style="padding: 8px 12px; font-weight: bold;">Fecha</td>
-          <td style="padding: 8px 12px;">${esc(new Date(params.date).toLocaleDateString('es-CO'))}</td>
-        </tr>
-      </table>
-      <p>Adjunto encontrará el acta de entrega con los detalles completos del activo.</p>
-      <p style="color: #666; font-size: 12px; margin-top: 30px; border-top: 1px solid #e5e5e5; padding-top: 10px;">
-        Este es un correo automático de InventIA — Saleads Corp
-      </p>
-    </div>
-  `;
+}): Promise<BuiltEmail> {
+  const tpl = await getTemplate('email_entrega');
+  const vars = {
+    personName: esc(params.personName),
+    personIdType: esc(params.personIdType ?? ''),
+    personIdNumber: esc(params.personIdNumber ?? ''),
+    assetCode: esc(params.assetCode),
+    assetName: esc(params.assetName),
+    date: esc(new Date(params.date).toLocaleDateString('es-CO')),
+  };
+  return {
+    subject: renderTemplate(tpl.subject ?? '', vars),
+    html: renderTemplate(tpl.body, vars),
+  };
 }
 
-export function buildDevolucionEmailHtml(params: {
+export async function buildDevolucionEmail(params: {
   personName: string;
+  personIdType?: string;
+  personIdNumber?: string;
   assetCode: string;
   assetName: string;
   date: string;
   condition: string;
-}) {
+}): Promise<BuiltEmail> {
+  const tpl = await getTemplate('email_devolucion');
   const conditionText = params.condition === 'bueno' ? 'Bueno — Sin novedades' : 'Con daños';
-
-  return `
-    <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
-      <h2 style="color: #1a1a1a; border-bottom: 2px solid #e5e5e5; padding-bottom: 10px;">
-        Acta de Devolución y Paz y Salvo
-      </h2>
-      <p>Estimado/a <strong>${esc(params.personName)}</strong>,</p>
-      <p>Se ha registrado la devolución del siguiente activo:</p>
-      <table style="width: 100%; border-collapse: collapse; margin: 20px 0;">
-        <tr style="background: #f5f5f5;">
-          <td style="padding: 8px 12px; font-weight: bold;">Código</td>
-          <td style="padding: 8px 12px;">${esc(params.assetCode)}</td>
-        </tr>
-        <tr>
-          <td style="padding: 8px 12px; font-weight: bold;">Activo</td>
-          <td style="padding: 8px 12px;">${esc(params.assetName)}</td>
-        </tr>
-        <tr style="background: #f5f5f5;">
-          <td style="padding: 8px 12px; font-weight: bold;">Fecha</td>
-          <td style="padding: 8px 12px;">${esc(new Date(params.date).toLocaleDateString('es-CO'))}</td>
-        </tr>
-        <tr>
-          <td style="padding: 8px 12px; font-weight: bold;">Estado</td>
-          <td style="padding: 8px 12px;">${esc(conditionText)}</td>
-        </tr>
-      </table>
-      <p>Adjunto encontrará el acta de devolución y paz y salvo.</p>
-      <p>Queda a <strong>paz y salvo</strong> respecto a este activo.</p>
-      <p style="color: #666; font-size: 12px; margin-top: 30px; border-top: 1px solid #e5e5e5; padding-top: 10px;">
-        Este es un correo automático de InventIA — Saleads Corp
-      </p>
-    </div>
-  `;
+  const vars = {
+    personName: esc(params.personName),
+    personIdType: esc(params.personIdType ?? ''),
+    personIdNumber: esc(params.personIdNumber ?? ''),
+    assetCode: esc(params.assetCode),
+    assetName: esc(params.assetName),
+    date: esc(new Date(params.date).toLocaleDateString('es-CO')),
+    condition: esc(conditionText),
+  };
+  return {
+    subject: renderTemplate(tpl.subject ?? '', vars),
+    html: renderTemplate(tpl.body, vars),
+  };
 }
