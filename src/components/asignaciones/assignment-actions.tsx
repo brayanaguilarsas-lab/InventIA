@@ -21,8 +21,11 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Undo2, Loader2 } from 'lucide-react';
+import { Checkbox } from '@/components/ui/checkbox';
+import { Undo2, Loader2, AlertTriangle } from 'lucide-react';
+import { toast } from 'sonner';
 import type { ReturnCondition } from '@/types/database';
+import { humanizeError } from '@/lib/errors';
 
 export function AssignmentActions({ assignmentId }: { assignmentId: string }) {
   const router = useRouter();
@@ -31,6 +34,7 @@ export function AssignmentActions({ assignmentId }: { assignmentId: string }) {
   const [error, setError] = useState('');
   const [condition, setCondition] = useState<ReturnCondition>('bueno');
   const [damageDescription, setDamageDescription] = useState('');
+  const [confirmChecked, setConfirmChecked] = useState(false);
 
   async function handleReturn(e: React.FormEvent) {
     e.preventDefault();
@@ -42,10 +46,14 @@ export function AssignmentActions({ assignmentId }: { assignmentId: string }) {
         return_condition: condition,
         damage_description: condition === 'con_daños' ? damageDescription : null,
       });
+      toast.success('Devolución registrada');
       setOpen(false);
+      setConfirmChecked(false);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al procesar la devolución');
+      const msg = humanizeError(err);
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -68,7 +76,7 @@ export function AssignmentActions({ assignmentId }: { assignmentId: string }) {
           )}
           <div className="space-y-2">
             <Label>Estado de devolución *</Label>
-            <Select value={condition} onValueChange={(v) => { if (v) setCondition(v as ReturnCondition); }}>
+            <Select value={condition} onValueChange={(v) => setCondition((v ?? 'bueno') as ReturnCondition)}>
               <SelectTrigger>
                 <SelectValue />
               </SelectTrigger>
@@ -89,11 +97,30 @@ export function AssignmentActions({ assignmentId }: { assignmentId: string }) {
               />
             </div>
           )}
+          <div className="flex items-start gap-3 rounded-md border border-yellow-500/40 bg-yellow-500/10 p-3">
+            <AlertTriangle className="h-4 w-4 text-yellow-500 shrink-0 mt-0.5" />
+            <div className="flex-1 space-y-2">
+              <p className="text-xs text-muted-foreground">
+                Al registrar la devolución se cerrará la asignación y se generará el acta de paz y salvo.
+                Esta acción no se puede deshacer.
+              </p>
+              <div className="flex items-center gap-2">
+                <Checkbox
+                  id="confirm-return"
+                  checked={confirmChecked}
+                  onCheckedChange={(v) => setConfirmChecked(!!v)}
+                />
+                <Label htmlFor="confirm-return" className="text-xs cursor-pointer">
+                  Confirmo que el activo fue devuelto físicamente
+                </Label>
+              </div>
+            </div>
+          </div>
           <div className="flex gap-3 justify-end">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>
               Cancelar
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading || !confirmChecked}>
               {loading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />

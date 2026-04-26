@@ -1,8 +1,8 @@
 import { getAssignments } from '@/lib/actions/assignments';
 import { getAvailableAssets } from '@/lib/actions/assets';
 import { getActivePeople } from '@/lib/actions/people';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { ReturnConditionBadge } from '@/lib/status-badges';
 import {
   Table,
   TableBody,
@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/table';
 import { AssignmentActions } from '@/components/asignaciones/assignment-actions';
 import { NewAssignmentDialog } from '@/components/asignaciones/new-assignment-dialog';
+import { AssignmentEditMenu } from '@/components/asignaciones/assignment-edit-menu';
 import { DownloadActaButton } from '@/components/asignaciones/download-acta-button';
 
 export default async function AssignmentsPage() {
@@ -27,8 +28,13 @@ export default async function AssignmentsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Asignaciones</h1>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Asignaciones</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Entrega de activos a personas. Cada asignación genera acta PDF que se envía por correo.
+          </p>
+        </div>
         <NewAssignmentDialog assets={availableAssets} people={activePeople} />
       </div>
 
@@ -36,6 +42,7 @@ export default async function AssignmentsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Asignaciones Activas ({activeAssignments.length})</CardTitle>
+          <CardDescription>Activos actualmente en uso por su responsable</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -52,13 +59,13 @@ export default async function AssignmentsPage() {
               {activeAssignments.map((assignment) => (
                 <TableRow key={assignment.id}>
                   <TableCell className="font-medium">
-                    {(assignment.asset as { name: string } | null)?.name}
+                    {(assignment.asset as unknown as { name: string } | null)?.name}
                   </TableCell>
                   <TableCell className="font-mono text-sm">
-                    {(assignment.asset as { code: string } | null)?.code}
+                    {(assignment.asset as unknown as { code: string } | null)?.code}
                   </TableCell>
                   <TableCell>
-                    {(assignment.person as { full_name: string } | null)?.full_name}
+                    {(assignment.person as unknown as { full_name: string } | null)?.full_name}
                   </TableCell>
                   <TableCell className="font-mono text-sm">
                     {new Date(assignment.assigned_at).toLocaleDateString('es-CO')}
@@ -67,6 +74,27 @@ export default async function AssignmentsPage() {
                     <div className="flex gap-1">
                       <DownloadActaButton assignmentId={assignment.id} tipo="entrega" />
                       <AssignmentActions assignmentId={assignment.id} />
+                      <AssignmentEditMenu
+                        assignmentId={assignment.id}
+                        assetCode={
+                          (assignment.asset as unknown as { code: string } | null)?.code ?? ''
+                        }
+                        assetName={
+                          (assignment.asset as unknown as { name: string } | null)?.name ?? ''
+                        }
+                        personId={assignment.person_id}
+                        personName={
+                          (assignment.person as unknown as { full_name: string } | null)?.full_name ?? ''
+                        }
+                        personIsSpartian={
+                          !!(assignment.person as unknown as { is_spartian?: boolean } | null)?.is_spartian
+                        }
+                        people={activePeople.map((p) => ({
+                          id: p.id,
+                          full_name: p.full_name,
+                          area: p.area,
+                        }))}
+                      />
                     </div>
                   </TableCell>
                 </TableRow>
@@ -87,6 +115,7 @@ export default async function AssignmentsPage() {
       <Card>
         <CardHeader>
           <CardTitle>Historial de Asignaciones</CardTitle>
+          <CardDescription>Asignaciones cerradas con acta de paz y salvo</CardDescription>
         </CardHeader>
         <CardContent>
           <Table>
@@ -104,10 +133,10 @@ export default async function AssignmentsPage() {
               {pastAssignments.map((assignment) => (
                 <TableRow key={assignment.id}>
                   <TableCell>
-                    {(assignment.asset as { name: string } | null)?.name}
+                    {(assignment.asset as unknown as { name: string } | null)?.name}
                   </TableCell>
                   <TableCell>
-                    {(assignment.person as { full_name: string } | null)?.full_name}
+                    {(assignment.person as unknown as { full_name: string } | null)?.full_name}
                   </TableCell>
                   <TableCell className="font-mono text-sm">
                     {new Date(assignment.assigned_at).toLocaleDateString('es-CO')}
@@ -118,10 +147,7 @@ export default async function AssignmentsPage() {
                       : '-'}
                   </TableCell>
                   <TableCell>
-                    {assignment.return_condition === 'bueno' && <Badge>Bueno</Badge>}
-                    {assignment.return_condition === 'con_daños' && (
-                      <Badge variant="destructive">Con daños</Badge>
-                    )}
+                    <ReturnConditionBadge condition={assignment.return_condition} />
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-1">

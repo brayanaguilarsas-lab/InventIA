@@ -2,11 +2,12 @@ import { createServerClient } from '@supabase/ssr';
 import { NextResponse, type NextRequest } from 'next/server';
 
 export async function updateSession(request: NextRequest) {
-  // Skip static assets and internal Next.js routes
+  // Skip static assets, Next internals, and API routes (API routes auth themselves)
   const { pathname } = request.nextUrl;
   if (
     pathname.startsWith('/_next') ||
     pathname.startsWith('/favicon') ||
+    pathname.startsWith('/api/') ||
     pathname.match(/\.(css|js|svg|png|jpg|jpeg|gif|webp|woff|woff2|ico|map)$/)
   ) {
     return NextResponse.next();
@@ -39,16 +40,23 @@ export async function updateSession(request: NextRequest) {
     }
   );
 
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  let user: { id: string } | null = null;
+  try {
+    const res = await supabase.auth.getUser();
+    user = res.data.user;
+  } catch {
+    user = null;
+  }
 
   const isAuthPage =
     request.nextUrl.pathname.startsWith('/login') ||
     request.nextUrl.pathname.startsWith('/auth');
 
-  // Not logged in → redirect to login (except auth pages)
+  // Not logged in → redirect to login (except auth pages and API routes)
   if (!user && !isAuthPage) {
+    if (request.nextUrl.pathname.startsWith('/api/')) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
     const url = request.nextUrl.clone();
     url.pathname = '/login';
     return NextResponse.redirect(url);

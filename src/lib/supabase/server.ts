@@ -1,7 +1,10 @@
 import { createServerClient } from '@supabase/ssr';
 import { cookies } from 'next/headers';
+import { cache } from 'react';
 
-export async function createClient() {
+// Memoizado con React cache() → dedupe por request server-side.
+// Múltiples createClient() dentro del mismo request comparten el mismo cliente.
+export const createClient = cache(async () => {
   const cookieStore = await cookies();
 
   return createServerClient(
@@ -18,11 +21,11 @@ export async function createClient() {
               cookieStore.set(name, value, options)
             );
           } catch {
-            // The `setAll` method was called from a Server Component.
-            // This can be ignored if you have middleware refreshing sessions.
+            // El `setAll` fue llamado desde un Server Component.
+            // Se puede ignorar si el middleware refresca sesiones.
           }
         },
       },
     }
   );
-}
+});

@@ -2,15 +2,22 @@ import { NextResponse } from 'next/server';
 import { createClient } from '@/lib/supabase/server';
 import { generateActaPDF } from '@/lib/pdf/generate-acta';
 
+export const maxDuration = 60;
+export const runtime = 'nodejs';
+
 export async function GET(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+  }
+
   const { searchParams } = new URL(request.url);
   const assignmentId = searchParams.get('id');
 
   if (!assignmentId) {
     return NextResponse.json({ error: 'ID requerido' }, { status: 400 });
   }
-
-  const supabase = await createClient();
 
   const { data: assignment, error } = await supabase
     .from('assignments')
@@ -71,10 +78,16 @@ export async function GET(request: Request) {
     damageDescription: assignment.damage_description ?? undefined,
   });
 
+  const safePerson = person.full_name
+    .normalize('NFD')
+    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '');
+  const safeCode = asset.code.replace(/[^a-zA-Z0-9_-]/g, '_');
   return new NextResponse(Buffer.from(pdfBytes), {
     headers: {
       'Content-Type': 'application/pdf',
-      'Content-Disposition': `inline; filename="Acta_Devolucion_${asset.code}_${person.full_name.replace(/\s/g, '_')}.pdf"`,
+      'Content-Disposition': `inline; filename="Acta_Devolucion_${safeCode}_${safePerson}.pdf"`,
     },
   });
 }

@@ -13,6 +13,7 @@ import {
 } from '@/components/ui/table';
 import type { AssetStatus, FieldDefinition } from '@/types/database';
 import { AssetActions } from '@/components/activos/asset-actions';
+import { calculateDepreciation, formatYears } from '@/lib/depreciation';
 
 const statusLabels: Record<string, string> = {
   disponible: 'Disponible',
@@ -46,6 +47,12 @@ export default async function AssetDetailPage({
   const history = await getAssetHistory(id);
   const category = asset.category as { name: string; fields_schema: FieldDefinition[] } | null;
   const specificFields = (asset.specific_fields ?? {}) as Record<string, unknown>;
+  const depreciation = calculateDepreciation(
+    category?.name,
+    Number(asset.commercial_value),
+    asset.purchase_date
+  );
+  const supplier = (asset as unknown as { supplier?: string | null }).supplier ?? null;
 
   return (
     <div className="space-y-6">
@@ -90,6 +97,55 @@ export default async function AssetDetailPage({
               <span className="text-sm text-muted-foreground">Fecha de Ingreso</span>
               <span className="text-sm font-mono">{asset.entry_date}</span>
             </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Proveedor</span>
+              <span className="text-sm font-medium">{supplier ?? 'N/A'}</span>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Depreciation */}
+        <Card>
+          <CardHeader>
+            <CardTitle>Depreciación (DIAN)</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Tasa anual</span>
+              <span className="text-sm font-mono">{(depreciation.annualRate * 100).toFixed(2)}%</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Vida útil</span>
+              <span className="text-sm font-mono">{depreciation.usefulLifeYears} años</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Tiempo transcurrido</span>
+              <span className="text-sm font-mono">
+                {asset.purchase_date ? formatYears(depreciation.yearsElapsed) : 'Sin fecha de compra'}
+              </span>
+            </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">Depreciación acumulada</span>
+              <span className="text-sm font-mono text-destructive">
+                −{formatCurrency(depreciation.accumulated)}
+              </span>
+            </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-sm font-semibold">Valor en libros</span>
+              <span className="text-sm font-mono font-semibold">
+                {formatCurrency(depreciation.bookValue)}
+              </span>
+            </div>
+            {depreciation.isFullyDepreciated && (
+              <Badge variant="destructive" className="w-full justify-center">
+                Totalmente depreciado
+              </Badge>
+            )}
           </CardContent>
         </Card>
 

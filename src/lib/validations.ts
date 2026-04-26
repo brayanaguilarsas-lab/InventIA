@@ -16,13 +16,16 @@ export const createPersonSchema = z.object({
   area: z.string().min(1, 'El área es requerida'),
   position: z.string().min(1, 'El cargo es requerido'),
   email: z.string().email('Correo electrónico inválido'),
+  is_spartian: z.boolean().default(false),
 });
 
 export const createAssetSchema = z.object({
   name: z.string().min(2, 'El nombre del activo es requerido'),
   category_id: z.string().uuid('Selecciona una categoría'),
+  quantity: z.number().int().min(1, 'La cantidad mínima es 1').default(1),
   purchase_date: z.string().nullable().optional(),
   commercial_value: z.number().min(0, 'El valor debe ser mayor o igual a 0'),
+  supplier: z.string().nullable().optional(),
   has_insurance: z.boolean().default(false),
   insurer_name: z.string().nullable().optional(),
   insurance_start: z.string().nullable().optional(),

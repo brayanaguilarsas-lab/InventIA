@@ -18,7 +18,9 @@ import {
 } from '@/components/ui/select';
 import { Separator } from '@/components/ui/separator';
 import { Upload, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import type { Category, FieldDefinition } from '@/types/database';
+import { humanizeError } from '@/lib/errors';
 
 export function AssetForm({ categories }: { categories: Category[] }) {
   const router = useRouter();
@@ -29,8 +31,10 @@ export function AssetForm({ categories }: { categories: Category[] }) {
   const [formData, setFormData] = useState({
     name: '',
     category_id: '',
+    quantity: 1,
     purchase_date: '',
     commercial_value: 0,
+    supplier: '',
     has_insurance: false,
     insurer_name: '',
     insurance_start: '',
@@ -71,15 +75,18 @@ export function AssetForm({ categories }: { categories: Category[] }) {
         body: formDataObj,
       });
 
-      if (!response.ok) throw new Error('Error en la extracción');
+      const result = await response.json().catch(() => ({}));
 
-      const result = await response.json();
+      if (!response.ok) {
+        throw new Error(result?.error || `Error en la extracción (HTTP ${response.status})`);
+      }
 
       setFormData((prev) => ({
         ...prev,
         name: result.name || prev.name,
         commercial_value: result.commercial_value || prev.commercial_value,
         purchase_date: result.purchase_date || prev.purchase_date,
+        supplier: result.supplier || prev.supplier,
         specific_fields: { ...prev.specific_fields, ...result.specific_fields },
       }));
 
@@ -95,8 +102,10 @@ export function AssetForm({ categories }: { categories: Category[] }) {
       if (result.alerts && result.alerts.length > 0) {
         setAiAlerts(result.alerts);
       }
-    } catch {
-      setError('Error al extraer datos con IA. Completa los campos manualmente.');
+    } catch (err) {
+      const msg = humanizeError(err);
+      setError(msg || 'Error al extraer datos con IA. Completa los campos manualmente.');
+      toast.error('Extracción con IA falló', { description: msg });
     } finally {
       setExtracting(false);
     }
@@ -108,16 +117,28 @@ export function AssetForm({ categories }: { categories: Category[] }) {
     setError('');
 
     try {
-      await createAsset({
+      if (formData.has_insurance) {
+        if (!formData.insurer_name?.trim()) throw new Error('Aseguradora es requerida cuando el activo tiene póliza');
+        if (!formData.insurance_start) throw new Error('Fecha de inicio de cobertura es requerida');
+        if (!formData.insurance_end) throw new Error('Fecha de fin de cobertura es requerida');
+        if (new Date(formData.insurance_end) <= new Date(formData.insurance_start)) {
+          throw new Error('La fecha fin de cobertura debe ser posterior al inicio');
+        }
+      }
+      const asset = await createAsset({
         ...formData,
         purchase_date: formData.purchase_date || null,
+        supplier: formData.supplier?.trim() || null,
         insurer_name: formData.has_insurance ? formData.insurer_name : null,
         insurance_start: formData.has_insurance ? formData.insurance_start : null,
         insurance_end: formData.has_insurance ? formData.insurance_end : null,
       });
+      toast.success('Activo registrado', { description: `Código ${asset.code}` });
       router.push('/activos');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al crear el activo');
+      const msg = humanizeError(err);
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -195,7 +216,7 @@ export function AssetForm({ categories }: { categories: Category[] }) {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="category">Categoría *</Label>
-              <Select value={formData.category_id} onValueChange={(v) => v && handleCategoryChange(v)}>
+              <Select value={formData.category_id} onValueChange={(v) => handleCategoryChange(v ?? '')}>
                 <SelectTrigger>
                   <SelectValue placeholder="Seleccionar categoría" />
                 </SelectTrigger>
@@ -240,6 +261,29 @@ export function AssetForm({ categories }: { categories: Category[] }) {
                 required
               />
             </div>
+            <div className="space-y-2">
+              <Label htmlFor="quantity">Cantidad *</Label>
+              <Input
+                id="quantity"
+                type="number"
+                min={1}
+                step={1}
+                value={formData.quantity}
+                onChange={(e) =>
+                  setFormData((p) => ({ ...p, quantity: Math.max(1, Number(e.target.value) || 1) }))
+                }
+                required
+              />
+            </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label htmlFor="supplier">Proveedor</Label>
+              <Input
+                id="supplier"
+                value={formData.supplier}
+                onChange={(e) => setFormData((p) => ({ ...p, supplier: e.target.value }))}
+                placeholder="Tomado de la factura (ej: Apple Colombia S.A.S.)"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -260,7 +304,7 @@ export function AssetForm({ categories }: { categories: Category[] }) {
                   {field.type === 'select' && field.options ? (
                     <Select
                       value={(formData.specific_fields[field.name] as string) ?? ''}
-                      onValueChange={(v) => v && handleSpecificFieldChange(field.name, v)}
+                      onValueChange={(v) => handleSpecificFieldChange(field.name, v ?? '')}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder={`Seleccionar ${field.label.toLowerCase()}`} />
@@ -301,9 +345,13 @@ export function AssetForm({ categories }: { categories: Category[] }) {
             />
             <Label>¿Tiene póliza de seguro?</Label>
           </div>
-          {formData.has_insurance && (
-            <>
-              <Separator />
+          <div
+            className={`grid transition-all duration-300 ease-in-out ${
+              formData.has_insurance ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+            }`}
+          >
+            <div className="overflow-hidden">
+              <Separator className="mb-4" />
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-2">
                   <Label>Aseguradora</Label>
@@ -333,8 +381,8 @@ export function AssetForm({ categories }: { categories: Category[] }) {
                   />
                 </div>
               </div>
-            </>
-          )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 

@@ -1,12 +1,15 @@
 import { createClient } from '@/lib/supabase/server';
 import { redirect } from 'next/navigation';
+import { cache } from 'react';
 import type { UserProfile } from '@/types/database';
 
-export async function getUser() {
+// getUser() memoizado por request: múltiples páginas/acciones que lo llamen
+// comparten una sola respuesta. Evita N llamadas a /auth/v1/user.
+export const getUser = cache(async () => {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   return user;
-}
+});
 
 export async function requireAuth() {
   const user = await getUser();
@@ -14,11 +17,12 @@ export async function requireAuth() {
   return user;
 }
 
-export async function getUserProfile(): Promise<UserProfile | null> {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+// Memoizado también: se usa en layout y en acciones.
+export const getUserProfile = cache(async (): Promise<UserProfile | null> => {
+  const user = await getUser();
   if (!user) return null;
 
+  const supabase = await createClient();
   const { data: profile } = await supabase
     .from('user_profiles')
     .select('*')
@@ -27,7 +31,7 @@ export async function getUserProfile(): Promise<UserProfile | null> {
 
   if (profile) return profile as UserProfile;
 
-  // Auto-create profile if it doesn't exist
+  // Auto-create profile si no existe
   const { data: newProfile } = await supabase
     .from('user_profiles')
     .insert({
@@ -40,7 +44,7 @@ export async function getUserProfile(): Promise<UserProfile | null> {
     .single();
 
   return newProfile as UserProfile;
-}
+});
 
 export async function getAdminUsers(): Promise<UserProfile[]> {
   const supabase = await createClient();

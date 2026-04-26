@@ -2,8 +2,8 @@ import Link from 'next/link';
 import { getAssets } from '@/lib/actions/assets';
 import { getCategories } from '@/lib/actions/categories';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { AssetStatusBadge } from '@/lib/status-badges';
 import {
   Table,
   TableBody,
@@ -12,22 +12,12 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { Plus } from 'lucide-react';
+import { Pagination } from '@/components/ui/pagination';
+import { EmptyState } from '@/components/ui/empty-state';
+import { Plus, Package } from 'lucide-react';
 import { AssetFilters } from '@/components/activos/asset-filters';
 
-const statusLabels: Record<string, string> = {
-  disponible: 'Disponible',
-  asignado: 'Asignado',
-  mantenimiento: 'En Mantenimiento',
-  baja: 'Dado de Baja',
-};
-
-const statusVariant: Record<string, 'default' | 'secondary' | 'destructive' | 'outline'> = {
-  disponible: 'default',
-  asignado: 'secondary',
-  mantenimiento: 'outline',
-  baja: 'destructive',
-};
+const PAGE_SIZE = 25;
 
 function formatCurrency(value: number) {
   return new Intl.NumberFormat('es-CO', {
@@ -40,18 +30,33 @@ function formatCurrency(value: number) {
 export default async function AssetsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ status?: string; category_id?: string; search?: string }>;
+  searchParams: Promise<{
+    status?: string;
+    category_id?: string;
+    search?: string;
+    insured?: string;
+    page?: string;
+  }>;
 }) {
   const params = await searchParams;
-  const [assets, categories] = await Promise.all([
-    getAssets(params),
+  const page = Math.max(1, Number(params.page ?? 1));
+
+  const [assetsRes, categories] = await Promise.all([
+    getAssets({ ...params, page, pageSize: PAGE_SIZE }),
     getCategories(),
   ]);
+  const { rows: assets, total } = assetsRes;
+  const hasFilters = Boolean(params.status || params.category_id || params.search || params.insured);
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Activos</h1>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Activos</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Inventario completo de equipos, mobiliario, vehículos y electrodomésticos.
+          </p>
+        </div>
         <Link href="/activos/nuevo">
           <Button>
             <Plus className="mr-2 h-4 w-4" />
@@ -64,57 +69,76 @@ export default async function AssetsPage({
 
       <Card>
         <CardHeader>
-          <CardTitle>
-            Inventario ({assets.length} activos)
-          </CardTitle>
+          <CardTitle>Inventario ({total} activos)</CardTitle>
+          {total > 0 && (
+            <CardDescription>
+              {hasFilters ? 'Resultados filtrados' : 'Todos los activos registrados'}
+            </CardDescription>
+          )}
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Código</TableHead>
-                <TableHead>Nombre</TableHead>
-                <TableHead>Categoría</TableHead>
-                <TableHead>Estado</TableHead>
-                <TableHead className="text-right">Valor</TableHead>
-                <TableHead>Fecha Ingreso</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {assets.map((asset) => (
-                <TableRow key={asset.id}>
-                  <TableCell>
-                    <Link
-                      href={`/activos/${asset.id}`}
-                      className="font-mono font-medium hover:underline"
-                    >
-                      {asset.code}
-                    </Link>
-                  </TableCell>
-                  <TableCell>{asset.name}</TableCell>
-                  <TableCell>{(asset.category as { name: string } | null)?.name}</TableCell>
-                  <TableCell>
-                    <Badge variant={statusVariant[asset.status] ?? 'default'}>
-                      {statusLabels[asset.status] ?? asset.status}
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="text-right font-mono">
-                    {formatCurrency(Number(asset.commercial_value))}
-                  </TableCell>
-                  <TableCell className="font-mono text-sm">
-                    {asset.entry_date}
-                  </TableCell>
-                </TableRow>
-              ))}
-              {assets.length === 0 && (
+          {total === 0 && !hasFilters ? (
+            <EmptyState
+              icon={Package}
+              title="Aún no hay activos registrados"
+              description="Comienza registrando tu primer activo. Puedes subir la factura y dejar que la IA complete los datos."
+              cta={{ label: 'Registrar primer activo', href: '/activos/nuevo' }}
+            />
+          ) : (
+          <>
+          <div className="overflow-x-auto">
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
-                    No hay activos registrados
-                  </TableCell>
+                  <TableHead>Código</TableHead>
+                  <TableHead>Nombre</TableHead>
+                  <TableHead>Categoría</TableHead>
+                  <TableHead>Estado</TableHead>
+                  <TableHead className="text-right">Cantidad</TableHead>
+                  <TableHead className="text-right">Valor</TableHead>
+                  <TableHead>Fecha Ingreso</TableHead>
                 </TableRow>
-              )}
-            </TableBody>
-          </Table>
+              </TableHeader>
+              <TableBody>
+                {assets.map((asset) => (
+                  <TableRow key={asset.id}>
+                    <TableCell>
+                      <Link
+                        href={`/activos/${asset.id}`}
+                        className="font-mono font-medium hover:underline"
+                      >
+                        {asset.code}
+                      </Link>
+                    </TableCell>
+                    <TableCell>{asset.name}</TableCell>
+                    <TableCell>{(asset.category as unknown as { name: string } | null)?.name}</TableCell>
+                    <TableCell>
+                      <AssetStatusBadge status={asset.status} />
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">
+                      {(asset as unknown as { quantity?: number }).quantity ?? 1}
+                    </TableCell>
+                    <TableCell className="text-right font-mono tabular-nums">
+                      {formatCurrency(Number(asset.commercial_value))}
+                    </TableCell>
+                    <TableCell className="font-mono text-sm">
+                      {asset.entry_date}
+                    </TableCell>
+                  </TableRow>
+                ))}
+                {assets.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                      No hay activos que coincidan con los filtros
+                    </TableCell>
+                  </TableRow>
+                )}
+              </TableBody>
+            </Table>
+          </div>
+          <Pagination total={total} pageSize={PAGE_SIZE} />
+          </>
+          )}
         </CardContent>
       </Card>
     </div>

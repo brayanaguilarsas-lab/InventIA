@@ -1,49 +1,89 @@
 'use client';
 
+import { useState } from 'react';
 import { Button } from '@/components/ui/button';
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/components/ui/dropdown-menu';
-import { Download, FileSpreadsheet } from 'lucide-react';
+import { Alert, AlertDescription } from '@/components/ui/alert';
+import { FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
 
 export function ExportButton() {
-  function handleExport(status?: string) {
-    const params = new URLSearchParams({ format: 'csv' });
-    if (status) params.set('status', status);
-    window.open(`/api/reportes/export?${params.toString()}`, '_blank');
+  const [loading, setLoading] = useState<'csv' | 'pdf' | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleExport(format: 'csv' | 'pdf') {
+    setLoading(format);
+    setError(null);
+    try {
+      const res = await fetch(`/api/reportes/export?format=${format}&t=${Date.now()}`, {
+        credentials: 'same-origin',
+        cache: 'no-store',
+      });
+      if (!res.ok) {
+        let msg = `${res.status} ${res.statusText}`;
+        try {
+          const txt = await res.text();
+          msg += ` — ${txt.slice(0, 300)}`;
+        } catch {}
+        throw new Error(msg);
+      }
+      const blob = await res.blob();
+      if (blob.size === 0) throw new Error('El servidor devolvió un archivo vacío');
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `Inventario_SaleADS_${new Date().toISOString().slice(0, 10)}.${format}`;
+      a.style.display = 'none';
+      document.body.appendChild(a);
+      a.click();
+      setTimeout(() => {
+        a.remove();
+        URL.revokeObjectURL(url);
+      }, 100);
+    } catch (err) {
+      console.error('[Export]', err);
+      setError(err instanceof Error ? err.message : 'Error al exportar');
+    } finally {
+      setLoading(null);
+    }
   }
 
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger
-        render={
-          <Button variant="outline">
-            <Download className="mr-2 h-4 w-4" />
-            Exportar
-          </Button>
-        }
-      />
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => handleExport()}>
-          <FileSpreadsheet className="mr-2 h-4 w-4" />
-          Todo el inventario
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleExport('disponible')}>
-          <FileSpreadsheet className="mr-2 h-4 w-4" />
-          Solo disponibles
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleExport('asignado')}>
-          <FileSpreadsheet className="mr-2 h-4 w-4" />
-          Solo asignados
-        </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => handleExport('mantenimiento')}>
-          <FileSpreadsheet className="mr-2 h-4 w-4" />
-          En mantenimiento
-        </DropdownMenuItem>
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <div className="flex flex-col items-end gap-2">
+      <div className="flex gap-2">
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => handleExport('csv')}
+          disabled={loading !== null}
+        >
+          {loading === 'csv' ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <FileSpreadsheet className="mr-2 h-4 w-4" />
+          )}
+          Exportar Excel (CSV)
+        </Button>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => handleExport('pdf')}
+          disabled={loading !== null}
+        >
+          {loading === 'pdf' ? (
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+          ) : (
+            <FileText className="mr-2 h-4 w-4" />
+          )}
+          Exportar PDF
+        </Button>
+      </div>
+      {error && (
+        <Alert variant="destructive" className="max-w-xl">
+          <AlertDescription className="break-all">
+            <span className="font-semibold">Error al exportar: </span>
+            {error}
+          </AlertDescription>
+        </Alert>
+      )}
+    </div>
   );
 }

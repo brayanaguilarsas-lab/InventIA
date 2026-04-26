@@ -15,8 +15,11 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import type { Person } from '@/types/database';
+import { humanizeError } from '@/lib/errors';
 
 export function EditPersonForm({ person }: { person: Person }) {
   const router = useRouter();
@@ -30,6 +33,7 @@ export function EditPersonForm({ person }: { person: Person }) {
     area: person.area,
     position: person.position,
     email: person.email,
+    is_spartian: person.is_spartian ?? false,
   });
 
   async function handleSubmit(e: React.FormEvent) {
@@ -39,10 +43,13 @@ export function EditPersonForm({ person }: { person: Person }) {
 
     try {
       await updatePerson(person.id, formData);
+      toast.success('Cambios guardados');
       router.push(`/personas/${person.id}`);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al actualizar');
+      const msg = humanizeError(err);
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -83,9 +90,9 @@ export function EditPersonForm({ person }: { person: Person }) {
               <Label>Tipo de documento *</Label>
               <Select
                 value={formData.id_type}
-                onValueChange={(v) => {
-                  if (v) setFormData((p) => ({ ...p, id_type: v as typeof formData.id_type }));
-                }}
+                onValueChange={(v) =>
+                  setFormData((p) => ({ ...p, id_type: (v ?? p.id_type) as typeof formData.id_type }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -110,9 +117,9 @@ export function EditPersonForm({ person }: { person: Person }) {
               <Label>Tipo de persona *</Label>
               <Select
                 value={formData.person_type}
-                onValueChange={(v) => {
-                  if (v) setFormData((p) => ({ ...p, person_type: v as typeof formData.person_type }));
-                }}
+                onValueChange={(v) =>
+                  setFormData((p) => ({ ...p, person_type: (v ?? p.person_type) as typeof formData.person_type }))
+                }
               >
                 <SelectTrigger>
                   <SelectValue />
@@ -138,6 +145,18 @@ export function EditPersonForm({ person }: { person: Person }) {
                 onChange={(e) => setFormData((p) => ({ ...p, position: e.target.value }))}
                 required
               />
+            </div>
+            <div className="flex items-center gap-3 md:col-span-2">
+              <Switch
+                checked={formData.is_spartian}
+                onCheckedChange={(v) => setFormData((p) => ({ ...p, is_spartian: v }))}
+              />
+              <div>
+                <Label>¿Es Spartian?</Label>
+                <p className="text-xs text-muted-foreground">
+                  Si se activa, las entregas usarán acta de comodato Spartian.
+                </p>
+              </div>
             </div>
           </div>
 

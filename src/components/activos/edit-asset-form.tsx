@@ -18,7 +18,9 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 import type { Asset, Category, FieldDefinition } from '@/types/database';
+import { humanizeError } from '@/lib/errors';
 
 export function EditAssetForm({
   asset,
@@ -35,6 +37,7 @@ export function EditAssetForm({
     category_id: asset.category_id,
     purchase_date: asset.purchase_date ?? '',
     commercial_value: Number(asset.commercial_value),
+    supplier: asset.supplier ?? '',
     has_insurance: asset.has_insurance,
     insurer_name: asset.insurer_name ?? '',
     insurance_start: asset.insurance_start ?? '',
@@ -58,17 +61,29 @@ export function EditAssetForm({
     setError('');
 
     try {
+      if (formData.has_insurance) {
+        if (!formData.insurer_name?.trim()) throw new Error('Aseguradora es requerida cuando el activo tiene póliza');
+        if (!formData.insurance_start) throw new Error('Fecha de inicio de cobertura es requerida');
+        if (!formData.insurance_end) throw new Error('Fecha de fin de cobertura es requerida');
+        if (new Date(formData.insurance_end) <= new Date(formData.insurance_start)) {
+          throw new Error('La fecha fin de cobertura debe ser posterior al inicio');
+        }
+      }
       await updateAsset(asset.id, {
         ...formData,
         purchase_date: formData.purchase_date || null,
+        supplier: formData.supplier?.trim() || null,
         insurer_name: formData.has_insurance ? formData.insurer_name : null,
         insurance_start: formData.has_insurance ? formData.insurance_start : null,
         insurance_end: formData.has_insurance ? formData.insurance_end : null,
       });
+      toast.success('Cambios guardados');
       router.push(`/activos/${asset.id}`);
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al actualizar');
+      const msg = humanizeError(err);
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -119,6 +134,14 @@ export function EditAssetForm({
                 required
               />
             </div>
+            <div className="space-y-2 md:col-span-2">
+              <Label>Proveedor</Label>
+              <Input
+                value={formData.supplier}
+                onChange={(e) => setFormData((p) => ({ ...p, supplier: e.target.value }))}
+                placeholder="Razón social del proveedor (factura)"
+              />
+            </div>
           </div>
         </CardContent>
       </Card>
@@ -137,7 +160,7 @@ export function EditAssetForm({
                   {field.type === 'select' && field.options ? (
                     <Select
                       value={(formData.specific_fields[field.name] as string) ?? ''}
-                      onValueChange={(v) => v && handleSpecificFieldChange(field.name, v)}
+                      onValueChange={(v) => handleSpecificFieldChange(field.name, v ?? '')}
                     >
                       <SelectTrigger>
                         <SelectValue placeholder={`Seleccionar ${field.label.toLowerCase()}`} />
@@ -176,9 +199,13 @@ export function EditAssetForm({
             />
             <Label>¿Tiene póliza de seguro?</Label>
           </div>
-          {formData.has_insurance && (
-            <>
-              <Separator />
+          <div
+            className={`grid transition-all duration-300 ease-in-out ${
+              formData.has_insurance ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+            }`}
+          >
+            <div className="overflow-hidden">
+              <Separator className="mb-4" />
               <div className="grid gap-4 md:grid-cols-3">
                 <div className="space-y-2">
                   <Label>Aseguradora</Label>
@@ -204,8 +231,8 @@ export function EditAssetForm({
                   />
                 </div>
               </div>
-            </>
-          )}
+            </div>
+          </div>
         </CardContent>
       </Card>
 

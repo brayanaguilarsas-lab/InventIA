@@ -32,6 +32,8 @@ export interface Asset {
   purchase_date: string | null;
   entry_date: string;
   commercial_value: number;
+  quantity: number;
+  supplier: string | null;
   has_insurance: boolean;
   insurer_name: string | null;
   insurance_start: string | null;
@@ -55,6 +57,7 @@ export interface Person {
   position: string;
   email: string;
   is_active: boolean;
+  is_spartian: boolean;
   created_at: string;
 }
 

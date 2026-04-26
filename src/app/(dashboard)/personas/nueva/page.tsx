@@ -15,7 +15,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { Switch } from '@/components/ui/switch';
 import { Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { humanizeError } from '@/lib/errors';
 
 export default function NewPersonPage() {
   const router = useRouter();
@@ -29,6 +32,7 @@ export default function NewPersonPage() {
     area: '',
     position: '',
     email: '',
+    is_spartian: false,
   });
 
   async function handleSubmit(e: React.FormEvent) {
@@ -38,9 +42,12 @@ export default function NewPersonPage() {
 
     try {
       await createPerson(formData);
+      toast.success('Persona registrada', { description: formData.full_name });
       router.push('/personas');
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al crear la persona');
+      const msg = humanizeError(err);
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
@@ -147,6 +154,18 @@ export default function NewPersonPage() {
                   placeholder="Cargo en la empresa"
                   required
                 />
+              </div>
+              <div className="flex items-center gap-3 md:col-span-2">
+                <Switch
+                  checked={formData.is_spartian}
+                  onCheckedChange={(v) => setFormData((p) => ({ ...p, is_spartian: v }))}
+                />
+                <div>
+                  <Label>¿Es Spartian?</Label>
+                  <p className="text-xs text-muted-foreground">
+                    Si se activa, las entregas usarán acta de comodato Spartian.
+                  </p>
+                </div>
               </div>
             </div>
 

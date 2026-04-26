@@ -10,12 +10,21 @@ export async function getAssets(filters?: {
   status?: string;
   category_id?: string;
   search?: string;
+  insured?: string;
+  page?: number;
+  pageSize?: number;
 }) {
   const supabase = await createClient();
+  const page = Math.max(1, filters?.page ?? 1);
+  const pageSize = filters?.pageSize ?? 25;
+  const from = (page - 1) * pageSize;
+  const to = from + pageSize - 1;
+
   let query = supabase
     .from('assets')
-    .select('*, category:categories(*)')
-    .order('created_at', { ascending: false });
+    .select('*, category:categories(name, code_prefix)', { count: 'exact' })
+    .order('created_at', { ascending: false })
+    .range(from, to);
 
   if (filters?.status && filters.status !== 'todos') {
     query = query.eq('status', filters.status);
@@ -23,15 +32,17 @@ export async function getAssets(filters?: {
   if (filters?.category_id) {
     query = query.eq('category_id', filters.category_id);
   }
+  if (filters?.insured === '1' || filters?.insured === 'true') {
+    query = query.eq('has_insurance', true);
+  }
   if (filters?.search) {
-    query = query.or(
-      `name.ilike.%${filters.search}%,code.ilike.%${filters.search}%`
-    );
+    const pattern = `%${filters.search}%`;
+    query = query.or(`name.ilike.${pattern},code.ilike.${pattern}`);
   }
 
-  const { data, error } = await query;
+  const { data, error, count } = await query;
   if (error) throw new Error(error.message);
-  return data;
+  return { rows: data ?? [], total: count ?? 0 };
 }
 
 export async function getAssetById(id: string) {
@@ -50,7 +61,7 @@ export async function getAvailableAssets() {
   const supabase = await createClient();
   const { data, error } = await supabase
     .from('assets')
-    .select('*, category:categories(*)')
+    .select('id, code, name, category:categories(name)')
     .eq('status', 'disponible')
     .order('name');
 
@@ -62,12 +73,13 @@ export async function createAsset(input: CreateAssetInput) {
   const parsed = createAssetSchema.parse(input);
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Sesión inválida');
 
   const { data, error } = await supabase
     .from('assets')
     .insert({
       ...parsed,
-      created_by: user?.id,
+      created_by: user.id,
     })
     .select('*, category:categories(*)')
     .single();
@@ -93,6 +105,8 @@ export async function createAsset(input: CreateAssetInput) {
 
 export async function updateAsset(id: string, input: Partial<CreateAssetInput>) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Sesión inválida');
 
   const { data, error } = await supabase
     .from('assets')

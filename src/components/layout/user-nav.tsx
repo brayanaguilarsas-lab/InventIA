@@ -1,88 +1,117 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Button } from '@/components/ui/button';
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuGroup,
   DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu';
-import { LogOut, User } from 'lucide-react';
+import { LogOut, Sun, Moon, Monitor } from 'lucide-react';
 
-interface UserInfo {
+type Theme = 'light' | 'dark' | 'system';
+
+interface UserNavProps {
   email: string;
-  full_name: string;
+  fullName: string;
 }
 
-export function UserNav() {
+export function UserNav({ email, fullName }: UserNavProps) {
   const router = useRouter();
-  const [user, setUser] = useState<UserInfo | null>(null);
-
-  useEffect(() => {
-    async function loadUser() {
-      const supabase = createClient();
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) return;
-
-      const { data: profile } = await supabase
-        .from('user_profiles')
-        .select('email, full_name')
-        .eq('id', authUser.id)
-        .single();
-
-      if (profile) {
-        setUser(profile as UserInfo);
-      } else {
-        setUser({ email: authUser.email ?? '', full_name: authUser.email?.split('@')[0] ?? '' });
-      }
+  const [theme, setTheme] = useState<Theme>(() => {
+    if (typeof window === 'undefined') return 'system';
+    try {
+      return (localStorage.getItem('theme') as Theme | null) ?? 'system';
+    } catch {
+      return 'system';
     }
-    loadUser();
-  }, []);
+  });
+
+  function setAppliedTheme(next: Theme) {
+    setTheme(next);
+    try {
+      if (next === 'system') localStorage.removeItem('theme');
+      else localStorage.setItem('theme', next);
+      const isDark =
+        next === 'dark' ||
+        (next === 'system' && window.matchMedia('(prefers-color-scheme: dark)').matches);
+      document.documentElement.classList.toggle('dark', isDark);
+    } catch {}
+  }
 
   async function handleLogout() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } catch {}
     router.push('/login');
     router.refresh();
   }
 
-  const initials = user?.full_name
-    ?.split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2) ?? '?';
+  const initials =
+    fullName
+      .split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2) || '?';
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger
         render={
-          <Button variant="ghost" className="relative h-9 w-9 rounded-full">
-            <Avatar className="h-9 w-9">
+          <button
+            type="button"
+            className="flex w-full items-center gap-3 rounded-md p-2 text-left hover:bg-accent transition-colors"
+          >
+            <Avatar className="h-9 w-9 shrink-0">
               <AvatarFallback className="bg-primary text-primary-foreground text-xs">
                 {initials}
               </AvatarFallback>
             </Avatar>
-          </Button>
+            <div className="flex flex-col min-w-0 flex-1">
+              <span className="text-xs font-medium truncate">{fullName}</span>
+              <span className="text-[10px] text-muted-foreground truncate">{email}</span>
+            </div>
+          </button>
         }
       />
       <DropdownMenuContent align="end" className="w-56">
-        <DropdownMenuLabel>
-          <div className="flex flex-col space-y-1">
-            <p className="text-sm font-medium">{user?.full_name}</p>
-            <p className="text-xs text-muted-foreground">{user?.email}</p>
-          </div>
-        </DropdownMenuLabel>
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>
+            <div className="flex flex-col space-y-1">
+              <p className="text-sm font-medium">{fullName}</p>
+              <p className="text-xs text-muted-foreground">{email}</p>
+            </div>
+          </DropdownMenuLabel>
+        </DropdownMenuGroup>
         <DropdownMenuSeparator />
-        <DropdownMenuItem disabled>
-          <User className="mr-2 h-4 w-4" />
-          Mi Perfil
+        <DropdownMenuItem onClick={() => setAppliedTheme('light')}>
+          <Sun className="mr-2 h-4 w-4" />
+          Tema claro
+          {theme === 'light' && (
+            <span className="ml-auto text-xs text-muted-foreground">✓</span>
+          )}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setAppliedTheme('dark')}>
+          <Moon className="mr-2 h-4 w-4" />
+          Tema oscuro
+          {theme === 'dark' && (
+            <span className="ml-auto text-xs text-muted-foreground">✓</span>
+          )}
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => setAppliedTheme('system')}>
+          <Monitor className="mr-2 h-4 w-4" />
+          Según sistema
+          {theme === 'system' && (
+            <span className="ml-auto text-xs text-muted-foreground">✓</span>
+          )}
         </DropdownMenuItem>
         <DropdownMenuSeparator />
         <DropdownMenuItem onClick={handleLogout}>

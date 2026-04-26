@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Package } from 'lucide-react';
+import { humanizeError } from '@/lib/errors';
 
 export default function LoginPage() {
   const [email, setEmail] = useState('');
@@ -29,7 +30,7 @@ export default function LoginPage() {
     });
 
     if (error) {
-      setError('Credenciales inválidas. Verifica tu correo y contraseña.');
+      setError(humanizeError(error));
       setLoading(false);
       return;
     }

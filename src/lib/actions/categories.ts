@@ -19,6 +19,8 @@ export async function getCategories() {
 export async function createCategory(input: CreateCategoryInput) {
   const parsed = createCategorySchema.parse(input);
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Sesión inválida');
 
   const { data, error } = await supabase
     .from('categories')
@@ -35,6 +37,8 @@ export async function createCategory(input: CreateCategoryInput) {
 
 export async function updateCategory(id: string, input: Partial<CreateCategoryInput>) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Sesión inválida');
 
   const { data, error } = await supabase
     .from('categories')
@@ -52,6 +56,8 @@ export async function updateCategory(id: string, input: Partial<CreateCategoryIn
 
 export async function deleteCategory(id: string) {
   const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) throw new Error('Sesión inválida');
 
   const { count } = await supabase
     .from('assets')
@@ -63,7 +69,14 @@ export async function deleteCategory(id: string) {
   }
 
   const { error } = await supabase.from('categories').delete().eq('id', id);
-  if (error) throw new Error(error.message);
+  if (error) {
+    // Cubre la race condition: si entre el count y el delete alguien creó
+    // un activo con esta categoría, el FK constraint hará fallar el delete.
+    if (error.code === '23503') {
+      throw new Error('No se puede eliminar una categoría con activos asociados');
+    }
+    throw new Error(error.message);
+  }
 
   await logAudit('eliminar_categoria', 'categories', id, {});
   revalidatePath('/configuracion');

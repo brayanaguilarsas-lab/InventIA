@@ -1,8 +1,27 @@
 import { NextResponse } from 'next/server';
+import { timingSafeEqual } from 'crypto';
+import { z } from 'zod';
 import { createClient } from '@/lib/supabase/server';
 import { generateActaPDF } from '@/lib/pdf/generate-acta';
 import { sendActaEmail, buildEntregaEmailHtml, buildDevolucionEmailHtml } from '@/lib/email';
 import { uploadActaToDrive } from '@/lib/google-drive';
+
+export const maxDuration = 60;
+export const runtime = 'nodejs';
+
+const webhookSchema = z.object({
+  action: z.enum(['assignment_complete', 'return_complete']),
+  assignment_id: z.string().uuid('assignment_id debe ser UUID válido'),
+});
+
+function verifySecret(incoming: string | null): boolean {
+  const expected = process.env.N8N_WEBHOOK_SECRET;
+  if (!expected || !incoming) return false;
+  const a = Buffer.from(incoming);
+  const b = Buffer.from(expected);
+  if (a.length !== b.length) return false;
+  return timingSafeEqual(a, b);
+}
 
 /**
  * n8n Webhook endpoint for orchestrating automated flows.
@@ -17,18 +36,19 @@ import { uploadActaToDrive } from '@/lib/google-drive';
  */
 export async function POST(request: Request) {
   try {
-    // Verify webhook secret
-    const secret = request.headers.get('x-webhook-secret');
-    if (secret !== process.env.N8N_WEBHOOK_SECRET) {
+    // Verify webhook secret (constant-time compare)
+    if (!verifySecret(request.headers.get('x-webhook-secret'))) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const body = await request.json();
-    const { action, assignment_id } = body;
-
-    if (!action || !assignment_id) {
-      return NextResponse.json({ error: 'Missing action or assignment_id' }, { status: 400 });
+    let parsedBody;
+    try {
+      parsedBody = webhookSchema.parse(await request.json());
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : 'Body inválido';
+      return NextResponse.json({ error: msg }, { status: 400 });
     }
+    const { action, assignment_id } = parsedBody;
 
     const supabase = await createClient();
 
@@ -185,7 +205,11 @@ export async function POST(request: Request) {
       }
     }
 
-    return NextResponse.json({ success: true, results });
+    const failed = 'drive_error' in results || 'email_error' in results;
+    return NextResponse.json(
+      { success: !failed, results },
+      { status: failed ? 502 : 200 }
+    );
   } catch (err) {
     console.error('[Webhook] Error:', err);
     return NextResponse.json(

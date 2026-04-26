@@ -21,13 +21,21 @@ import {
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Plus, Loader2 } from 'lucide-react';
-import type { Asset, Person } from '@/types/database';
+import { toast } from 'sonner';
+import type { Person } from '@/types/database';
+import { humanizeError } from '@/lib/errors';
+
+interface AssetOption {
+  id: string;
+  code: string;
+  name: string;
+}
 
 export function NewAssignmentDialog({
   assets,
   people,
 }: {
-  assets: Asset[];
+  assets: AssetOption[];
   people: Person[];
 }) {
   const router = useRouter();
@@ -46,19 +54,31 @@ export function NewAssignmentDialog({
 
     try {
       await createAssignment({ asset_id: assetId, person_id: personId });
+      toast.success('Activo asignado correctamente');
       setOpen(false);
       setAssetId('');
       setPersonId('');
       router.refresh();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Error al crear la asignación');
+      const msg = humanizeError(err);
+      setError(msg);
+      toast.error(msg);
     } finally {
       setLoading(false);
     }
   }
 
+  function handleOpenChange(next: boolean) {
+    setOpen(next);
+    if (!next) {
+      setAssetId('');
+      setPersonId('');
+      setError('');
+    }
+  }
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger
         render={<Button><Plus className="mr-2 h-4 w-4" />Nueva Asignación</Button>}
       />
@@ -74,7 +94,7 @@ export function NewAssignmentDialog({
           )}
           <div className="space-y-2">
             <Label>Activo disponible *</Label>
-            <Select value={assetId} onValueChange={(v) => v && setAssetId(v)}>
+            <Select value={assetId} onValueChange={(v) => setAssetId(v ?? '')}>
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar activo" />
               </SelectTrigger>
@@ -89,7 +109,7 @@ export function NewAssignmentDialog({
           </div>
           <div className="space-y-2">
             <Label>Persona *</Label>
-            <Select value={personId} onValueChange={(v) => v && setPersonId(v)}>
+            <Select value={personId} onValueChange={(v) => setPersonId(v ?? '')}>
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar persona" />
               </SelectTrigger>

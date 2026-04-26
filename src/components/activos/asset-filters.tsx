@@ -2,6 +2,7 @@
 
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import {
   Select,
   SelectContent,
@@ -10,11 +11,14 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import type { Category } from '@/types/database';
-import { useCallback } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { X } from 'lucide-react';
 
 export function AssetFilters({ categories }: { categories: Category[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const [search, setSearch] = useState(searchParams.get('search') ?? '');
+  const isFirstRender = useRef(true);
 
   const updateParams = useCallback(
     (key: string, value: string) => {
@@ -24,22 +28,44 @@ export function AssetFilters({ categories }: { categories: Category[] }) {
       } else {
         params.delete(key);
       }
+      // Reset page on filter change
+      params.delete('page');
       router.push(`/activos?${params.toString()}`);
     },
     [router, searchParams]
   );
 
+  // Debounce search: 300ms después de dejar de escribir
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    const t = setTimeout(() => updateParams('search', search), 300);
+    return () => clearTimeout(t);
+  }, [search, updateParams]);
+
+  const currentStatus = searchParams.get('status') ?? 'todos';
+  const currentCategory = searchParams.get('category_id') ?? 'todos';
+  const hasFilters =
+    search !== '' || currentStatus !== 'todos' || currentCategory !== 'todos';
+
+  function clearAll() {
+    setSearch('');
+    router.push('/activos');
+  }
+
   return (
-    <div className="flex flex-wrap gap-4">
+    <div className="flex flex-wrap items-center gap-3">
       <Input
         placeholder="Buscar por nombre o código..."
-        defaultValue={searchParams.get('search') ?? ''}
-        onChange={(e) => updateParams('search', e.target.value)}
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
         className="max-w-xs"
       />
       <Select
-        defaultValue={searchParams.get('status') ?? 'todos'}
-        onValueChange={(v) => v && updateParams('status', v)}
+        value={currentStatus}
+        onValueChange={(v) => updateParams('status', v ?? 'todos')}
       >
         <SelectTrigger className="w-48">
           <SelectValue placeholder="Estado" />
@@ -53,8 +79,8 @@ export function AssetFilters({ categories }: { categories: Category[] }) {
         </SelectContent>
       </Select>
       <Select
-        defaultValue={searchParams.get('category_id') ?? 'todos'}
-        onValueChange={(v) => v && updateParams('category_id', v)}
+        value={currentCategory}
+        onValueChange={(v) => updateParams('category_id', v ?? 'todos')}
       >
         <SelectTrigger className="w-48">
           <SelectValue placeholder="Categoría" />
@@ -68,6 +94,12 @@ export function AssetFilters({ categories }: { categories: Category[] }) {
           ))}
         </SelectContent>
       </Select>
+      {hasFilters && (
+        <Button variant="ghost" size="sm" onClick={clearAll}>
+          <X className="mr-2 h-3 w-3" />
+          Limpiar filtros
+        </Button>
+      )}
     </div>
   );
 }

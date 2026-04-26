@@ -1,7 +1,9 @@
+import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ExportButton } from '@/components/reportes/export-button';
+import { CategoryAssetsList } from '@/components/reportes/category-assets-list';
 import {
   Package,
   DollarSign,
@@ -13,12 +15,53 @@ import {
   Shield,
 } from 'lucide-react';
 
-async function getDashboardData() {
+export interface CategoryAsset {
+  id: string;
+  code: string;
+  name: string;
+  status: string;
+  commercial_value: number;
+}
+
+export interface CategoryBucket {
+  count: number;
+  value: number;
+  assets: CategoryAsset[];
+}
+
+const EMPTY_DASHBOARD = {
+  totalAssets: 0,
+  totalValue: 0,
+  totalPeople: 0,
+  byStatus: { disponible: 0, asignado: 0, mantenimiento: 0, baja: 0 },
+  byCategory: {} as Record<string, CategoryBucket>,
+  insuredCount: 0,
+  insuranceAlerts: [] as Array<{
+    id: string;
+    code: string;
+    name: string;
+    insurer_name: string | null;
+    insurance_end: string | null;
+  }>,
+};
+
+async function getDashboardData(): Promise<typeof EMPTY_DASHBOARD> {
   const supabase = await createClient();
 
-  const [assetsRes, peopleRes, insuranceAlerts] = await Promise.all([
-    supabase.from('assets').select('status, commercial_value, category:categories(name)'),
-    supabase.from('people').select('id').eq('is_active', true),
+  // 4 queries en paralelo: 3 agregados por status + activos + alertas.
+  // Filtros en SQL, no en JS — reduce payload y CPU en el server.
+  const [activeRes, bajaCountRes, peopleRes, insuranceAlertsRes] = await Promise.all([
+    // Todos los activos NO dados de baja (para status breakdown + totales + categorías)
+    supabase
+      .from('assets')
+      .select('id, code, name, status, commercial_value, has_insurance, category:categories(name)')
+      .neq('status', 'baja'),
+    // Solo el conteo de bajas
+    supabase
+      .from('assets')
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'baja'),
+    supabase.from('people').select('id', { count: 'exact', head: true }).eq('is_active', true),
     supabase
       .from('assets')
       .select('id, code, name, insurer_name, insurance_end')
@@ -28,33 +71,59 @@ async function getDashboardData() {
       .neq('status', 'baja'),
   ]);
 
-  const assets = assetsRes.data ?? [];
-  const activeAssets = assets.filter((a) => a.status !== 'baja');
+  if (activeRes.error) {
+    console.error('[Dashboard] assets query failed:', activeRes.error.message);
+    return EMPTY_DASHBOARD;
+  }
+  if (peopleRes.error) {
+    console.error('[Dashboard] people query failed:', peopleRes.error.message);
+  }
+  if (insuranceAlertsRes.error) {
+    console.error('[Dashboard] insurance query failed:', insuranceAlertsRes.error.message);
+  }
+  const insuranceAlerts = insuranceAlertsRes;
 
+  const activeAssets = activeRes.data ?? [];
   const totalValue = activeAssets.reduce((sum, a) => sum + (Number(a.commercial_value) || 0), 0);
 
   const byStatus = {
-    disponible: assets.filter((a) => a.status === 'disponible').length,
-    asignado: assets.filter((a) => a.status === 'asignado').length,
-    mantenimiento: assets.filter((a) => a.status === 'mantenimiento').length,
-    baja: assets.filter((a) => a.status === 'baja').length,
+    disponible: 0,
+    asignado: 0,
+    mantenimiento: 0,
+    baja: bajaCountRes.count ?? 0,
   };
 
-  const byCategory: Record<string, { count: number; value: number }> = {};
+  const byCategory: Record<string, CategoryBucket> = {};
+  let insuredCount = 0;
+
+  // Un solo pase por activeAssets → status + categoría + asegurados.
   for (const asset of activeAssets) {
+    if (asset.status === 'disponible') byStatus.disponible++;
+    else if (asset.status === 'asignado') byStatus.asignado++;
+    else if (asset.status === 'mantenimiento') byStatus.mantenimiento++;
+
     const cat = asset.category as unknown as { name: string } | null;
     const catName = cat?.name ?? 'Sin categoría';
-    if (!byCategory[catName]) byCategory[catName] = { count: 0, value: 0 };
-    byCategory[catName].count++;
-    byCategory[catName].value += Number(asset.commercial_value) || 0;
-  }
+    const value = Number(asset.commercial_value) || 0;
+    const bucket = byCategory[catName] ?? { count: 0, value: 0, assets: [] };
+    bucket.count++;
+    bucket.value += value;
+    bucket.assets.push({
+      id: asset.id,
+      code: asset.code,
+      name: asset.name,
+      status: asset.status,
+      commercial_value: value,
+    });
+    byCategory[catName] = bucket;
 
-  const insuredCount = activeAssets.filter((a) => (a as { has_insurance?: boolean }).has_insurance !== false).length;
+    if (asset.has_insurance) insuredCount++;
+  }
 
   return {
     totalAssets: activeAssets.length,
     totalValue,
-    totalPeople: peopleRes.data?.length ?? 0,
+    totalPeople: peopleRes.count ?? 0,
     byStatus,
     byCategory,
     insuredCount,
@@ -75,62 +144,67 @@ export default async function DashboardPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Dashboard</h1>
+      <div className="flex items-start justify-between flex-wrap gap-3">
+        <div>
+          <h1 className="text-2xl font-semibold">Dashboard</h1>
+          <p className="text-sm text-muted-foreground mt-1">
+            Resumen ejecutivo del inventario y alertas clave.
+          </p>
+        </div>
         <ExportButton />
       </div>
 
       {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Total Activos
-            </CardTitle>
-            <Package className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{data.totalAssets}</div>
-          </CardContent>
-        </Card>
+        <Link href="/activos" className="block">
+          <Card className="transition hover:ring-2 hover:ring-primary/40 hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Activos</CardTitle>
+              <Package className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{data.totalAssets}</div>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Valor Total
-            </CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{formatCurrency(data.totalValue)}</div>
-          </CardContent>
-        </Card>
+        <Link href="/activos" className="block">
+          <Card className="transition hover:ring-2 hover:ring-primary/40 hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Valor Total</CardTitle>
+              <DollarSign className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{formatCurrency(data.totalValue)}</div>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Personas Activas
-            </CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{data.totalPeople}</div>
-          </CardContent>
-        </Card>
+        <Link href="/personas" className="block">
+          <Card className="transition hover:ring-2 hover:ring-primary/40 hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Personas Activas</CardTitle>
+              <Users className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">{data.totalPeople}</div>
+            </CardContent>
+          </Card>
+        </Link>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between pb-2">
-            <CardTitle className="text-sm font-medium text-muted-foreground">
-              Asegurados
-            </CardTitle>
-            <Shield className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">
-              {data.insuredCount}/{data.totalAssets}
-            </div>
-          </CardContent>
-        </Card>
+        <Link href="/activos?insured=1" className="block">
+          <Card className="transition hover:ring-2 hover:ring-primary/40 hover:shadow-md">
+            <CardHeader className="flex flex-row items-center justify-between pb-2">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Asegurados</CardTitle>
+              <Shield className="h-4 w-4 text-muted-foreground" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold">
+                {data.insuredCount}/{data.totalAssets}
+              </div>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
       {/* Status Breakdown */}
@@ -139,35 +213,35 @@ export default async function DashboardPage() {
           <CardHeader>
             <CardTitle>Estado de Activos</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
+          <CardContent className="space-y-2">
+            <Link href="/activos?status=disponible" className="flex items-center justify-between rounded-md p-2 transition hover:bg-muted">
               <div className="flex items-center gap-2">
                 <CheckCircle className="h-4 w-4 text-green-500" />
                 <span className="text-sm">Disponible</span>
               </div>
               <Badge variant="secondary">{data.byStatus.disponible}</Badge>
-            </div>
-            <div className="flex items-center justify-between">
+            </Link>
+            <Link href="/activos?status=asignado" className="flex items-center justify-between rounded-md p-2 transition hover:bg-muted">
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-blue-500" />
                 <span className="text-sm">Asignado</span>
               </div>
               <Badge variant="secondary">{data.byStatus.asignado}</Badge>
-            </div>
-            <div className="flex items-center justify-between">
+            </Link>
+            <Link href="/activos?status=mantenimiento" className="flex items-center justify-between rounded-md p-2 transition hover:bg-muted">
               <div className="flex items-center gap-2">
                 <Wrench className="h-4 w-4 text-yellow-500" />
                 <span className="text-sm">En Mantenimiento</span>
               </div>
               <Badge variant="secondary">{data.byStatus.mantenimiento}</Badge>
-            </div>
-            <div className="flex items-center justify-between">
+            </Link>
+            <Link href="/activos?status=baja" className="flex items-center justify-between rounded-md p-2 transition hover:bg-muted">
               <div className="flex items-center gap-2">
                 <XCircle className="h-4 w-4 text-red-500" />
                 <span className="text-sm">Dado de Baja</span>
               </div>
               <Badge variant="secondary">{data.byStatus.baja}</Badge>
-            </div>
+            </Link>
           </CardContent>
         </Card>
 
@@ -175,21 +249,8 @@ export default async function DashboardPage() {
           <CardHeader>
             <CardTitle>Valor por Categoría</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            {Object.entries(data.byCategory).map(([name, info]) => (
-              <div key={name} className="flex items-center justify-between">
-                <div>
-                  <span className="text-sm font-medium">{name}</span>
-                  <span className="ml-2 text-xs text-muted-foreground">
-                    ({info.count} activos)
-                  </span>
-                </div>
-                <span className="text-sm font-mono">{formatCurrency(info.value)}</span>
-              </div>
-            ))}
-            {Object.keys(data.byCategory).length === 0 && (
-              <p className="text-sm text-muted-foreground">No hay activos registrados</p>
-            )}
+          <CardContent>
+            <CategoryAssetsList categories={data.byCategory} />
           </CardContent>
         </Card>
       </div>
