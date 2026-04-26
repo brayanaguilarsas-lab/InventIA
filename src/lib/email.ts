@@ -1,8 +1,10 @@
-import { Resend } from 'resend';
+import { BrevoClient } from '@getbrevo/brevo';
 import { getTemplate, renderTemplate } from '@/lib/templates';
 
-function getResend() {
-  return new Resend(process.env.RESEND_API_KEY);
+function getBrevo() {
+  const apiKey =
+    process.env.BREVO_API_KEY ?? process.env.SENDINBLUE_API_KEY ?? '';
+  return new BrevoClient({ apiKey });
 }
 
 // Escape HTML para evitar XSS en email templates
@@ -20,15 +22,25 @@ function esc(s: string | undefined | null): string {
   });
 }
 
-// Admin emails that should receive copies of all actas
+// Admin emails que reciben copia (BCC) de todos los actas.
 const ADMIN_EMAILS = [
   process.env.ADMIN_EMAIL_1,
   process.env.ADMIN_EMAIL_2,
   process.env.ADMIN_EMAIL_3,
-].filter(Boolean) as string[];
+].filter((e): e is string => !!e);
 
-const FROM_EMAIL_RAW = process.env.FROM_EMAIL ?? 'inventario@saleads.com';
-const FROM_EMAIL = FROM_EMAIL_RAW.includes('<') ? FROM_EMAIL_RAW : `InventIA <${FROM_EMAIL_RAW}>`;
+// FROM_EMAIL puede venir como "Nombre <correo@dominio>" o solo "correo@dominio".
+// En Brevo, el sender debe estar verificado: verifica el correo en
+// https://app.brevo.com/senders → Add a sender. Sin verificar, el envío falla
+// con una respuesta clara que se traduce en el handler de errores.
+const FROM_RAW = (process.env.FROM_EMAIL ?? 'inventario@saleads.com').trim();
+const FROM = parseFromAddress(FROM_RAW);
+
+function parseFromAddress(raw: string): { email: string; name?: string } {
+  const m = raw.match(/^\s*(.+?)\s*<\s*([^>]+)\s*>\s*$/);
+  if (m) return { name: m[1], email: m[2] };
+  return { email: raw, name: 'InventIA' };
+}
 
 export interface ActaAttachment {
   filename: string;
@@ -49,54 +61,79 @@ export async function sendActaEmail({
   htmlBody,
   attachments,
 }: SendActaEmailParams) {
-  if (!process.env.RESEND_API_KEY) {
-    console.warn('[Email] Resend API key not configured, skipping email');
+  const apiKey = process.env.BREVO_API_KEY ?? process.env.SENDINBLUE_API_KEY;
+  if (!apiKey) {
+    console.warn('[Email] BREVO_API_KEY no configurada, salteando envío');
     return null;
   }
 
-  // Modo de prueba: si RESEND_TEST_REDIRECT_TO está configurada, redirige
-  // TODOS los correos a esa dirección con un prefijo en el asunto que
-  // indica el destinatario original. Sirve para validar el flujo end-to-end
-  // mientras se verifica el dominio en resend.com/domains. Para volver a
-  // producción real, simplemente elimina la env var en Vercel.
-  const testRedirect = (process.env.RESEND_TEST_REDIRECT_TO ?? '').trim();
-  let recipients: string[];
+  // Modo de prueba: redirige todos los correos a una sola dirección con
+  // prefijo en el subject. Acepta tanto el nombre nuevo (EMAIL_TEST_REDIRECT_TO)
+  // como el antiguo (RESEND_TEST_REDIRECT_TO) para no romper la migración.
+  const testRedirect = (
+    process.env.EMAIL_TEST_REDIRECT_TO ??
+    process.env.RESEND_TEST_REDIRECT_TO ??
+    ''
+  ).trim();
+
+  let recipients: { email: string }[];
+  let bcc: { email: string }[] | undefined;
   let finalSubject: string;
   let finalHtml = htmlBody;
 
   if (testRedirect) {
-    recipients = [testRedirect];
+    recipients = [{ email: testRedirect }];
+    bcc = undefined;
     finalSubject = `[TEST → ${to}] ${subject}`;
     finalHtml =
       `<div style="background:#fef3c7;border:1px solid #f59e0b;color:#92400e;padding:10px 14px;margin:0 0 16px;border-radius:6px;font-family:Arial,sans-serif;font-size:12px;">` +
-      `<strong>Modo de prueba</strong>: este correo iba dirigido a <code>${esc(to)}</code> pero fue redirigido a <code>${esc(testRedirect)}</code> porque el dominio aún no está verificado en Resend.` +
+      `<strong>Modo de prueba</strong>: este correo iba dirigido a <code>${esc(to)}</code> pero fue redirigido a <code>${esc(testRedirect)}</code> porque <code>EMAIL_TEST_REDIRECT_TO</code> está activa.` +
       `</div>` +
       htmlBody;
     console.log(`[Email] TEST mode — redirigiendo "${subject}" de ${to} → ${testRedirect}`);
   } else {
-    recipients = [to, ...ADMIN_EMAILS].filter(
-      (email, index, self) => self.indexOf(email) === index
-    );
+    recipients = [{ email: to }];
+    const adminBcc = ADMIN_EMAILS.filter((e) => e !== to).map((e) => ({ email: e }));
+    bcc = adminBcc.length > 0 ? adminBcc : undefined;
     finalSubject = subject;
   }
 
-  const { data, error } = await getResend().emails.send({
-    from: FROM_EMAIL,
-    to: recipients,
-    subject: finalSubject,
-    html: finalHtml,
-    attachments: attachments.map((a) => ({
-      filename: a.filename,
-      content: Buffer.from(a.bytes),
-    })),
-  });
+  try {
+    const brevo = getBrevo();
+    const response = await brevo.transactionalEmails.sendTransacEmail({
+      sender: { email: FROM.email, name: FROM.name },
+      to: recipients,
+      bcc,
+      subject: finalSubject,
+      htmlContent: finalHtml,
+      attachment: attachments.map((a) => ({
+        name: a.filename,
+        content: Buffer.from(a.bytes).toString('base64'),
+      })),
+    });
+    return response;
+  } catch (err) {
+    // Errores de Brevo vienen como BrevoError con structure { statusCode, body, message }
+    const e = err as { statusCode?: number; body?: { message?: string; code?: string }; message?: string };
+    const apiMsg = e.body?.message ?? e.message ?? 'Error desconocido';
+    const lower = apiMsg.toLowerCase();
+    let friendly = `Error enviando correo: ${apiMsg}`;
 
-  if (error) {
-    console.error('[Email] Error sending:', error);
-    throw new Error(`Error enviando correo: ${error.message}`);
+    if (lower.includes('sender') && (lower.includes('not valid') || lower.includes('not found') || lower.includes('not allowed'))) {
+      friendly =
+        `El remitente "${FROM.email}" no está verificado en Brevo. ` +
+        `Ve a app.brevo.com/senders → Add a sender, verifica el email y vuelve a intentar.`;
+    } else if (e.statusCode === 401 || lower.includes('api key') || lower.includes('unauthorized')) {
+      friendly = 'La BREVO_API_KEY no es válida o fue revocada. Genera una nueva en app.brevo.com/settings/keys/api.';
+    } else if (e.statusCode === 402 || lower.includes('quota') || lower.includes('credit')) {
+      friendly = 'La cuenta de Brevo agotó su cuota diaria/mensual. Espera al reset o sube de plan.';
+    } else if (e.statusCode === 429 || lower.includes('rate limit')) {
+      friendly = 'Brevo recibió demasiados envíos en poco tiempo. Espera un momento y vuelve a intentar.';
+    }
+
+    console.error('[Email] Brevo error:', e);
+    throw new Error(friendly);
   }
-
-  return data;
 }
 
 export interface BuiltEmail {
