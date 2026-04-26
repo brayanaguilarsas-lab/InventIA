@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { Hint } from '@/components/ui/hint';
 import { LogOut, Sun, Moon, Monitor } from 'lucide-react';
+import { titleCase } from '@/lib/format';
 
 type Theme = 'light' | 'dark' | 'system';
 
@@ -55,8 +56,9 @@ export function UserNav({ email, fullName }: UserNavProps) {
     router.refresh();
   }
 
+  const displayName = titleCase(fullName);
   const initials =
-    fullName
+    displayName
       .split(' ')
       .map((n) => n[0])
       .join('')
@@ -79,7 +81,7 @@ export function UserNav({ email, fullName }: UserNavProps) {
                 </AvatarFallback>
               </Avatar>
               <div className="flex flex-col min-w-0 flex-1">
-                <span className="text-xs font-medium truncate">{fullName}</span>
+                <span className="text-xs font-medium truncate">{displayName}</span>
                 <span className="text-[10px] text-muted-foreground truncate">{email}</span>
               </div>
             </button>
@@ -90,7 +92,7 @@ export function UserNav({ email, fullName }: UserNavProps) {
         <DropdownMenuGroup>
           <DropdownMenuLabel>
             <div className="flex flex-col space-y-1">
-              <p className="text-sm font-medium">{fullName}</p>
+              <p className="text-sm font-medium">{displayName}</p>
               <p className="text-xs text-muted-foreground">{email}</p>
             </div>
           </DropdownMenuLabel>

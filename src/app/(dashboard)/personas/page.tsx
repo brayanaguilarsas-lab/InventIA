@@ -17,6 +17,7 @@ import { Plus, Eye, Users } from 'lucide-react';
 import { PersonActions } from '@/components/personas/person-actions';
 import { ImportCsvDialog } from '@/components/personas/import-csv-dialog';
 import { PeopleSearch } from '@/components/personas/people-search';
+import { titleCase } from '@/lib/format';
 
 const PAGE_SIZE = 25;
 
@@ -88,7 +89,7 @@ export default async function PeoplePage({
                   <TableRow key={person.id}>
                     <TableCell className="font-medium">
                       <Link href={`/personas/${person.id}`} className="hover:underline">
-                        {person.full_name}
+                        {titleCase(person.full_name)}
                       </Link>
                     </TableCell>
                     <TableCell className="font-mono text-sm">
@@ -99,8 +100,8 @@ export default async function PeoplePage({
                         {person.person_type === 'empleado' ? 'Empleado' : 'Contratista'}
                       </Badge>
                     </TableCell>
-                    <TableCell>{person.area}</TableCell>
-                    <TableCell>{person.position}</TableCell>
+                    <TableCell>{titleCase(person.area)}</TableCell>
+                    <TableCell>{titleCase(person.position)}</TableCell>
                     <TableCell>
                       {person.is_spartian ? (
                         <Badge>Sí</Badge>

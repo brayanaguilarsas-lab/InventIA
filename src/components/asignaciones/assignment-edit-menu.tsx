@@ -47,6 +47,7 @@ import { Hint } from '@/components/ui/hint';
 import { MoreHorizontal, Pencil, Trash2, Star, FileText, Loader2, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { humanizeError } from '@/lib/errors';
+import { titleCase } from '@/lib/format';
 
 interface PersonOption {
   id: string;
@@ -234,7 +235,7 @@ export function AssignmentEditMenu({
                 <SelectContent>
                   {people.map((p) => (
                     <SelectItem key={p.id} value={p.id}>
-                      {p.full_name} — {p.area}
+                      {titleCase(p.full_name)} — {titleCase(p.area)}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -25,6 +25,7 @@ import { toast } from 'sonner';
 import { Hint } from '@/components/ui/hint';
 import type { Person } from '@/types/database';
 import { humanizeError } from '@/lib/errors';
+import { titleCase } from '@/lib/format';
 
 interface AssetOption {
   id: string;
@@ -119,7 +120,7 @@ export function NewAssignmentDialog({
               <SelectContent>
                 {people.map((person) => (
                   <SelectItem key={person.id} value={person.id}>
-                    {person.full_name} — {person.area}
+                    {titleCase(person.full_name)} — {titleCase(person.area)}
                   </SelectItem>
                 ))}
               </SelectContent>

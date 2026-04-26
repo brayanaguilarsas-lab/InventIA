@@ -28,6 +28,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Hint } from '@/components/ui/hint';
 import { Pencil, ArrowLeftRight, Wrench, XCircle, Loader2 } from 'lucide-react';
+import { titleCase } from '@/lib/format';
 import { toast } from 'sonner';
 import type { AssetStatus, RetirementReason, FinalDestination } from '@/types/database';
 import { humanizeError } from '@/lib/errors';
@@ -131,7 +132,7 @@ function QuickAssignDialog({ assetId }: { assetId: string }) {
               <SelectTrigger><SelectValue placeholder="Seleccionar persona" /></SelectTrigger>
               <SelectContent>
                 {people.map((p) => (
-                  <SelectItem key={p.id} value={p.id}>{p.full_name} — {p.area}</SelectItem>
+                  <SelectItem key={p.id} value={p.id}>{titleCase(p.full_name)} — {titleCase(p.area)}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -327,7 +328,7 @@ function QuickRetireDialog({ assetId }: { assetId: string }) {
               <SelectTrigger><SelectValue placeholder="Seleccionar administrador/a" /></SelectTrigger>
               <SelectContent>
                 {admins.map((a) => (
-                  <SelectItem key={a.id} value={a.id}>{a.full_name} ({a.email})</SelectItem>
+                  <SelectItem key={a.id} value={a.id}>{titleCase(a.full_name)} ({a.email})</SelectItem>
                 ))}
               </SelectContent>
             </Select>

@@ -15,6 +15,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Pencil } from 'lucide-react';
+import { titleCase } from '@/lib/format';
 
 async function getPersonAssignments(personId: string) {
   const supabase = await createClient();
@@ -59,7 +60,7 @@ export default async function PersonDetailPage({
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-semibold">{person.full_name}</h1>
+          <h1 className="text-2xl font-semibold">{titleCase(person.full_name)}</h1>
           <p className="text-muted-foreground">
             {person.id_type} {person.id_number}
           </p>
@@ -93,12 +94,12 @@ export default async function PersonDetailPage({
             <Separator />
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Área</span>
-              <span className="text-sm font-medium">{person.area}</span>
+              <span className="text-sm font-medium">{titleCase(person.area)}</span>
             </div>
             <Separator />
             <div className="flex justify-between">
               <span className="text-sm text-muted-foreground">Cargo</span>
-              <span className="text-sm font-medium">{person.position}</span>
+              <span className="text-sm font-medium">{titleCase(person.position)}</span>
             </div>
             <Separator />
             <div className="flex justify-between">

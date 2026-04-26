@@ -15,6 +15,7 @@ import { AssignmentActions } from '@/components/asignaciones/assignment-actions'
 import { NewAssignmentDialog } from '@/components/asignaciones/new-assignment-dialog';
 import { AssignmentEditMenu } from '@/components/asignaciones/assignment-edit-menu';
 import { DownloadActaButton } from '@/components/asignaciones/download-acta-button';
+import { titleCase } from '@/lib/format';
 
 export default async function AssignmentsPage() {
   const [assignments, availableAssets, activePeople] = await Promise.all([
@@ -65,7 +66,7 @@ export default async function AssignmentsPage() {
                     {(assignment.asset as unknown as { code: string } | null)?.code}
                   </TableCell>
                   <TableCell>
-                    {(assignment.person as unknown as { full_name: string } | null)?.full_name}
+                    {titleCase((assignment.person as unknown as { full_name: string } | null)?.full_name)}
                   </TableCell>
                   <TableCell className="font-mono text-sm">
                     {new Date(assignment.assigned_at).toLocaleDateString('es-CO')}
@@ -83,16 +84,16 @@ export default async function AssignmentsPage() {
                           (assignment.asset as unknown as { name: string } | null)?.name ?? ''
                         }
                         personId={assignment.person_id}
-                        personName={
-                          (assignment.person as unknown as { full_name: string } | null)?.full_name ?? ''
-                        }
+                        personName={titleCase(
+                          (assignment.person as unknown as { full_name: string } | null)?.full_name
+                        )}
                         personIsSpartian={
                           !!(assignment.person as unknown as { is_spartian?: boolean } | null)?.is_spartian
                         }
                         people={activePeople.map((p) => ({
                           id: p.id,
-                          full_name: p.full_name,
-                          area: p.area,
+                          full_name: titleCase(p.full_name),
+                          area: titleCase(p.area),
                         }))}
                       />
                     </div>
@@ -136,7 +137,7 @@ export default async function AssignmentsPage() {
                     {(assignment.asset as unknown as { name: string } | null)?.name}
                   </TableCell>
                   <TableCell>
-                    {(assignment.person as unknown as { full_name: string } | null)?.full_name}
+                    {titleCase((assignment.person as unknown as { full_name: string } | null)?.full_name)}
                   </TableCell>
                   <TableCell className="font-mono text-sm">
                     {new Date(assignment.assigned_at).toLocaleDateString('es-CO')}

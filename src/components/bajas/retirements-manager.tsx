@@ -32,6 +32,7 @@ import {
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Hint } from '@/components/ui/hint';
 import { Plus, Loader2 } from 'lucide-react';
+import { titleCase } from '@/lib/format';
 import { toast } from 'sonner';
 import { createRetirement } from '@/lib/actions/retirements';
 import { humanizeError } from '@/lib/errors';
@@ -205,7 +206,7 @@ export function RetirementsManager({
                   <SelectTrigger><SelectValue placeholder="Seleccionar administrador/a" /></SelectTrigger>
                   <SelectContent>
                     {admins.map((a) => (
-                      <SelectItem key={a.id} value={a.id}>{a.full_name} ({a.email})</SelectItem>
+                      <SelectItem key={a.id} value={a.id}>{titleCase(a.full_name)} ({a.email})</SelectItem>
                     ))}
                   </SelectContent>
                 </Select>

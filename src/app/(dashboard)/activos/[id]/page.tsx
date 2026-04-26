@@ -14,6 +14,7 @@ import {
 import type { AssetStatus, FieldDefinition } from '@/types/database';
 import { AssetActions } from '@/components/activos/asset-actions';
 import { calculateDepreciation, formatYears } from '@/lib/depreciation';
+import { titleCase } from '@/lib/format';
 
 const statusLabels: Record<string, string> = {
   disponible: 'Disponible',
@@ -210,7 +211,7 @@ export default async function AssetDetailPage({
             <TableBody>
               {history.assignments.map((a) => (
                 <TableRow key={a.id}>
-                  <TableCell>{(a.person as { full_name: string } | null)?.full_name}</TableCell>
+                  <TableCell>{titleCase((a.person as { full_name: string } | null)?.full_name)}</TableCell>
                   <TableCell className="font-mono text-sm">
                     {new Date(a.assigned_at).toLocaleDateString('es-CO')}
                   </TableCell>

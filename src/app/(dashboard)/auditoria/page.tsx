@@ -12,6 +12,7 @@ import {
 import { Pagination } from '@/components/ui/pagination';
 import { ClipboardList } from 'lucide-react';
 import { DiagnosticButton } from '@/components/auditoria/diagnostic-button';
+import { titleCase } from '@/lib/format';
 
 export const dynamic = 'force-dynamic';
 
@@ -195,7 +196,7 @@ export default async function AuditPage({
                         {new Date(log.created_at).toLocaleString('es-CO')}
                       </TableCell>
                       <TableCell className="text-sm">
-                        {user?.full_name ?? user?.email ?? 'Sistema'}
+                        {user?.full_name ? titleCase(user.full_name) : user?.email ?? 'Sistema'}
                       </TableCell>
                       <TableCell>
                         <Badge variant={action?.variant ?? 'outline'}>
