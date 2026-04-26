@@ -3,11 +3,14 @@ import { cn } from '@/lib/utils';
 
 // Paleta consistente por estado (funciona en dark y light).
 // green: OK/positivo · blue: neutral/info · amber: atención · red: crítico
+// Contrastes ajustados para WCAG AA en ambos temas:
+// - Dark: subimos opacidad de fondo y aclaramos el texto (300 en vez de 400).
+// - Light: bajamos a 800 para mejor contraste sobre 15% bg.
 const styles = {
-  green: 'bg-green-500/15 text-green-700 dark:text-green-400 border-green-500/30',
-  blue: 'bg-blue-500/15 text-blue-700 dark:text-blue-400 border-blue-500/30',
-  amber: 'bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/30',
-  red: 'bg-red-500/15 text-red-700 dark:text-red-400 border-red-500/30',
+  green: 'bg-green-500/15 dark:bg-green-500/25 text-green-800 dark:text-green-300 border-green-500/30',
+  blue: 'bg-blue-500/15 dark:bg-blue-500/25 text-blue-800 dark:text-blue-300 border-blue-500/30',
+  amber: 'bg-amber-500/15 dark:bg-amber-500/25 text-amber-800 dark:text-amber-300 border-amber-500/30',
+  red: 'bg-red-500/15 dark:bg-red-500/25 text-red-800 dark:text-red-300 border-red-500/30',
   gray: 'bg-muted text-muted-foreground border-border',
 };
 

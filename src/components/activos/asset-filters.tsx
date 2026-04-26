@@ -75,7 +75,7 @@ export function AssetFilters({ categories }: { categories: Category[] }) {
           value={currentStatus}
           onValueChange={(v) => updateParams('status', v ?? 'todos')}
         >
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-48" aria-label="Filtrar por estado">
             <SelectValue placeholder="Estado" />
           </SelectTrigger>
           <SelectContent>
@@ -92,7 +92,7 @@ export function AssetFilters({ categories }: { categories: Category[] }) {
           value={currentCategory}
           onValueChange={(v) => updateParams('category_id', v ?? 'todos')}
         >
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-48" aria-label="Filtrar por categoría">
             <SelectValue placeholder="Categoría" />
           </SelectTrigger>
           <SelectContent>

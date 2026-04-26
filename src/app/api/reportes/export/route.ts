@@ -25,6 +25,10 @@ export async function GET(request: Request) {
   if (categoryId) {
     query = query.eq('category_id', categoryId);
   }
+  // Cap defensivo: el PDF se genera con PDFShift y > 5000 filas tarda mucho
+  // (>30s) y puede excederse de maxDuration. Si alguien necesita más, debería
+  // filtrar o usar el CSV (más eficiente).
+  query = query.limit(5000);
 
   const { data: assets, error } = await query;
   if (error) {

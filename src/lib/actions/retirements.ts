@@ -92,5 +92,7 @@ export async function createRetirement(input: CreateRetirementInput) {
 
   revalidatePath('/bajas');
   revalidatePath('/activos');
+  revalidatePath('/asignaciones');
+  revalidatePath('/reportes');
   return data;
 }

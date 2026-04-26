@@ -72,7 +72,7 @@ export function PeopleSearch({ areas }: { areas: string[] }) {
           value={currentArea}
           onValueChange={(v) => pushParams({ area: v ?? 'todas' })}
         >
-          <SelectTrigger className="w-48">
+          <SelectTrigger className="w-48" aria-label="Filtrar por área">
             <SelectValue placeholder="Área" />
           </SelectTrigger>
           <SelectContent>

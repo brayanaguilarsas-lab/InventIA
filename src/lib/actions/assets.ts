@@ -5,6 +5,7 @@ import { createAssetSchema, type CreateAssetInput } from '@/lib/validations';
 import { logAudit } from '@/lib/audit';
 import { revalidatePath } from 'next/cache';
 import { createAssetFolder } from '@/lib/google-drive';
+import { escapeIlike } from '@/lib/utils';
 
 export async function getAssets(filters?: {
   status?: string;
@@ -36,7 +37,7 @@ export async function getAssets(filters?: {
     query = query.eq('has_insurance', true);
   }
   if (filters?.search) {
-    const pattern = `%${filters.search}%`;
+    const pattern = `%${escapeIlike(filters.search)}%`;
     query = query.or(`name.ilike.${pattern},code.ilike.${pattern}`);
   }
 
@@ -100,6 +101,7 @@ export async function createAsset(input: CreateAssetInput) {
     name: data.name,
   });
   revalidatePath('/activos');
+  revalidatePath('/reportes');
   return data;
 }
 
@@ -123,6 +125,7 @@ export async function updateAsset(id: string, input: Partial<CreateAssetInput>) 
   });
   revalidatePath('/activos');
   revalidatePath(`/activos/${id}`);
+  revalidatePath('/reportes');
   return data;
 }
 

@@ -4,6 +4,7 @@ import { createClient } from '@/lib/supabase/server';
 import { createPersonSchema, type CreatePersonInput } from '@/lib/validations';
 import { logAudit } from '@/lib/audit';
 import { revalidatePath } from 'next/cache';
+import { escapeIlike } from '@/lib/utils';
 
 export async function getPeople(filters?: {
   search?: string;
@@ -24,7 +25,7 @@ export async function getPeople(filters?: {
     .range(from, to);
 
   if (filters?.search) {
-    const pattern = `%${filters.search}%`;
+    const pattern = `%${escapeIlike(filters.search)}%`;
     query = query.or(`full_name.ilike.${pattern},id_number.ilike.${pattern},email.ilike.${pattern}`);
   }
 
@@ -268,6 +269,21 @@ export async function togglePersonActive(id: string) {
   if (!user) throw new Error('Sesión inválida');
 
   const person = await getPersonById(id);
+
+  // Si va a desactivarse, advertir si tiene activos asignados.
+  if (person.is_active) {
+    const { count } = await supabase
+      .from('assignments')
+      .select('id', { count: 'exact', head: true })
+      .eq('person_id', id)
+      .eq('is_active', true);
+    if (count && count > 0) {
+      throw new Error(
+        `No se puede desactivar: ${person.full_name} tiene ${count} activo${count === 1 ? '' : 's'} asignado${count === 1 ? '' : 's'}. Devuélvelos primero.`
+      );
+    }
+  }
+
   const { data, error } = await supabase
     .from('people')
     .update({ is_active: !person.is_active })

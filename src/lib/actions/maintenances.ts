@@ -63,6 +63,9 @@ export async function createMaintenance(input: CreateMaintenanceInput) {
   if (error) {
     // Revertir claim del activo a su estado anterior real.
     await supabase.from('assets').update({ status: previousStatus }).eq('id', parsed.asset_id);
+    if (error.code === '23505') {
+      throw new Error('Este activo ya tiene un mantenimiento abierto. Ciérralo antes de enviar otro.');
+    }
     throw new Error(error.message);
   }
 
@@ -86,6 +89,8 @@ export async function createMaintenance(input: CreateMaintenanceInput) {
 
   revalidatePath('/mantenimientos');
   revalidatePath('/activos');
+  revalidatePath('/asignaciones');
+  revalidatePath('/reportes');
   return data;
 }
 
@@ -131,5 +136,6 @@ export async function returnMaintenance(maintenanceId: string, input: ReturnMain
 
   revalidatePath('/mantenimientos');
   revalidatePath('/activos');
+  revalidatePath('/reportes');
   return data;
 }

@@ -105,6 +105,7 @@ export async function createAssignment(input: CreateAssignmentInput) {
 
   revalidatePath('/asignaciones');
   revalidatePath('/activos');
+  revalidatePath('/reportes');
   return data;
 }
 
@@ -186,6 +187,7 @@ export async function deleteAssignment(assignmentId: string) {
 
   revalidatePath('/asignaciones');
   revalidatePath('/activos');
+  revalidatePath('/reportes');
 }
 
 export async function returnAssignment(assignmentId: string, input: ReturnAssignmentInput) {
@@ -309,6 +311,7 @@ export async function returnAssignment(assignmentId: string, input: ReturnAssign
 
   revalidatePath('/asignaciones');
   revalidatePath('/activos');
+  revalidatePath('/reportes');
   return data;
 }
 

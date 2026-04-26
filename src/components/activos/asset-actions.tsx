@@ -209,7 +209,7 @@ function QuickMaintenanceDialog({ assetId }: { assetId: string }) {
           </div>
           <div className="space-y-2">
             <Label>Fecha de envío *</Label>
-            <Input type="date" value={form.sent_at} onChange={(e) => setForm((p) => ({ ...p, sent_at: e.target.value }))} required />
+            <Input type="date" value={form.sent_at} max={new Date().toISOString().split('T')[0]} onChange={(e) => setForm((p) => ({ ...p, sent_at: e.target.value }))} required />
           </div>
           <div className="flex gap-3 justify-end">
             <Button type="button" variant="outline" onClick={() => setOpen(false)}>Cancelar</Button>

@@ -193,7 +193,13 @@ export function MaintenancesManager({
               </div>
               <div className="space-y-2">
                 <Label>Fecha de envío *</Label>
-                <Input type="date" value={newForm.sent_at} onChange={(e) => setNewForm((p) => ({ ...p, sent_at: e.target.value }))} required />
+                <Input
+                  type="date"
+                  value={newForm.sent_at}
+                  max={new Date().toISOString().split('T')[0]}
+                  onChange={(e) => setNewForm((p) => ({ ...p, sent_at: e.target.value }))}
+                  required
+                />
               </div>
               <div className="flex gap-3 justify-end">
                 <Button type="button" variant="outline" onClick={() => setNewOpen(false)}>Cancelar</Button>
@@ -231,7 +237,13 @@ export function MaintenancesManager({
           <form onSubmit={handleReturn} className="space-y-4">
             <div className="space-y-2">
               <Label>Fecha de retorno *</Label>
-              <Input type="date" value={returnForm.returned_at} onChange={(e) => setReturnForm((p) => ({ ...p, returned_at: e.target.value }))} required />
+              <Input
+                type="date"
+                value={returnForm.returned_at}
+                max={new Date().toISOString().split('T')[0]}
+                onChange={(e) => setReturnForm((p) => ({ ...p, returned_at: e.target.value }))}
+                required
+              />
             </div>
             <div className="space-y-2">
               <Label>Estado final *</Label>

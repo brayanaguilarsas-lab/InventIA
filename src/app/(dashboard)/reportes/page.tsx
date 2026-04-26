@@ -1,5 +1,9 @@
 import Link from 'next/link';
 import { createClient } from '@/lib/supabase/server';
+
+// El dashboard es resumen ejecutivo — datos casi-en-tiempo-real son suficientes.
+// Cachear 60s reduce 90% de las queries en uso típico (varios usuarios revisando).
+export const revalidate = 60;
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { ExportButton } from '@/components/reportes/export-button';

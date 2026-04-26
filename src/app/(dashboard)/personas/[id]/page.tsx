@@ -20,23 +20,17 @@ import { titleCase } from '@/lib/format';
 async function getPersonAssignments(personId: string) {
   const supabase = await createClient();
 
-  const { data: active } = await supabase
+  // Una sola query, dividimos en JS — ahorra un round trip a Supabase.
+  const { data } = await supabase
     .from('assignments')
     .select('*, asset:assets(id, code, name, category:categories(name))')
     .eq('person_id', personId)
-    .eq('is_active', true)
     .order('assigned_at', { ascending: false });
 
-  const { data: history } = await supabase
-    .from('assignments')
-    .select('*, asset:assets(id, code, name, category:categories(name))')
-    .eq('person_id', personId)
-    .eq('is_active', false)
-    .order('assigned_at', { ascending: false });
-
+  const rows = data ?? [];
   return {
-    active: active ?? [],
-    history: history ?? [],
+    active: rows.filter((a) => a.is_active),
+    history: rows.filter((a) => !a.is_active),
   };
 }
 

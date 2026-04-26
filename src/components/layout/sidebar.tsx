@@ -135,7 +135,28 @@ function SidebarContent({
       <nav className="flex-1 space-y-1 px-3 py-4 overflow-y-auto">
         {navigation.map(renderItem)}
         <Separator className="my-4" />
-        {secondaryNavigation.map(renderItem)}
+        {/* Items secundarios sin prefetch — son visitados rara vez */}
+        {secondaryNavigation.map((item) => {
+          const isActive = pathname === item.href || pathname.startsWith(item.href + '/');
+          return (
+            <Hint key={item.name} label={item.name} description={item.description} side="right">
+              <Link
+                href={item.href}
+                prefetch={false}
+                onClick={onNavigate}
+                className={cn(
+                  'flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors',
+                  isActive
+                    ? 'bg-primary text-primary-foreground'
+                    : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground'
+                )}
+              >
+                <item.icon className="h-4 w-4" />
+                {item.name}
+              </Link>
+            </Hint>
+          );
+        })}
       </nav>
 
       <div className="border-t border-border p-3">
