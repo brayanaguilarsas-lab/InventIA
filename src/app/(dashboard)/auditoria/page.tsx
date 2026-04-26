@@ -11,6 +11,9 @@ import {
 } from '@/components/ui/table';
 import { Pagination } from '@/components/ui/pagination';
 import { ClipboardList } from 'lucide-react';
+import { DiagnosticButton } from '@/components/auditoria/diagnostic-button';
+
+export const dynamic = 'force-dynamic';
 
 const PAGE_SIZE = 50;
 
@@ -34,6 +37,9 @@ const actionLabels: Record<string, { label: string; variant: 'default' | 'second
   importar_persona: { label: 'Importar persona', variant: 'outline' },
   marcar_spartian: { label: 'Marcar Spartian', variant: 'default' },
   desmarcar_spartian: { label: 'Desmarcar Spartian', variant: 'secondary' },
+  actualizar_plantilla: { label: 'Actualizar plantilla', variant: 'outline' },
+  restaurar_plantilla: { label: 'Restaurar plantilla', variant: 'secondary' },
+  diagnostico_auditoria: { label: 'Diagnóstico auditoría', variant: 'outline' },
 };
 
 async function getAuditLogs(page: number) {
@@ -61,9 +67,12 @@ export default async function AuditPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <ClipboardList className="h-6 w-6" />
-        <h1 className="text-2xl font-semibold">Log de Auditoría</h1>
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <ClipboardList className="h-6 w-6" />
+          <h1 className="text-2xl font-semibold">Log de Auditoría</h1>
+        </div>
+        <DiagnosticButton />
       </div>
 
       <Card>
