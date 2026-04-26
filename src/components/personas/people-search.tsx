@@ -4,34 +4,34 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Hint } from '@/components/ui/hint';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 
 export function PeopleSearch() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [search, setSearch] = useState(searchParams.get('search') ?? '');
-  const isFirstRender = useRef(true);
+  const initialSearch = searchParams.get('search') ?? '';
+  const [search, setSearch] = useState(initialSearch);
 
-  const push = useCallback(
-    (value: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (value) params.set('search', value);
-      else params.delete('search');
-      params.delete('page');
-      router.push(`/personas?${params.toString()}`);
-    },
-    [router, searchParams]
-  );
+  // Guarda el último valor pusheado para no re-disparar la navegación
+  // si el efecto se vuelve a ejecutar por cambios externos (p.ej. el
+  // usuario fue a página 2 y la URL cambió, pero `search` no).
+  const lastPushedRef = useRef(initialSearch);
 
   useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    const t = setTimeout(() => push(search), 300);
+    if (search === lastPushedRef.current) return;
+    const t = setTimeout(() => {
+      lastPushedRef.current = search;
+      const params = new URLSearchParams(window.location.search);
+      if (search) params.set('search', search);
+      else params.delete('search');
+      // Cambiar el término de búsqueda resetea la paginación.
+      params.delete('page');
+      const qs = params.toString();
+      router.push(qs ? `/personas?${qs}` : '/personas');
+    }, 300);
     return () => clearTimeout(t);
-  }, [search, push]);
+  }, [search, router]);
 
   return (
     <div className="flex items-center gap-3">
@@ -50,6 +50,7 @@ export function PeopleSearch() {
             size="sm"
             onClick={() => {
               setSearch('');
+              lastPushedRef.current = '';
               router.push('/personas');
             }}
           >

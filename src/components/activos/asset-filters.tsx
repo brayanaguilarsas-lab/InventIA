@@ -12,39 +12,42 @@ import {
 } from '@/components/ui/select';
 import { Hint } from '@/components/ui/hint';
 import type { Category } from '@/types/database';
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { X } from 'lucide-react';
 
 export function AssetFilters({ categories }: { categories: Category[] }) {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const [search, setSearch] = useState(searchParams.get('search') ?? '');
-  const isFirstRender = useRef(true);
+  const initialSearch = searchParams.get('search') ?? '';
+  const [search, setSearch] = useState(initialSearch);
+  // Guarda el último valor pusheado para no re-disparar navegación cuando
+  // searchParams cambia por motivos externos (ej. paginación).
+  const lastPushedSearchRef = useRef(initialSearch);
 
-  const updateParams = useCallback(
-    (key: string, value: string) => {
-      const params = new URLSearchParams(searchParams.toString());
-      if (value && value !== 'todos') {
-        params.set(key, value);
-      } else {
-        params.delete(key);
-      }
-      // Reset page on filter change
-      params.delete('page');
-      router.push(`/activos?${params.toString()}`);
-    },
-    [router, searchParams]
-  );
-
-  // Debounce search: 300ms después de dejar de escribir
-  useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
+  function updateParams(key: string, value: string) {
+    const params = new URLSearchParams(window.location.search);
+    if (value && value !== 'todos') {
+      params.set(key, value);
+    } else {
+      params.delete(key);
     }
-    const t = setTimeout(() => updateParams('search', search), 300);
+    // Reset page on filter change
+    params.delete('page');
+    const qs = params.toString();
+    router.push(qs ? `/activos?${qs}` : '/activos');
+  }
+
+  // Debounce search: 300ms después de dejar de escribir.
+  // Solo navega si el search cambió respecto al último pusheado.
+  useEffect(() => {
+    if (search === lastPushedSearchRef.current) return;
+    const t = setTimeout(() => {
+      lastPushedSearchRef.current = search;
+      updateParams('search', search);
+    }, 300);
     return () => clearTimeout(t);
-  }, [search, updateParams]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   const currentStatus = searchParams.get('status') ?? 'todos';
   const currentCategory = searchParams.get('category_id') ?? 'todos';
@@ -53,6 +56,7 @@ export function AssetFilters({ categories }: { categories: Category[] }) {
 
   function clearAll() {
     setSearch('');
+    lastPushedSearchRef.current = '';
     router.push('/activos');
   }
 
