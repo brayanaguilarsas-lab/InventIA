@@ -184,7 +184,44 @@ Responde SOLO con el JSON, sin texto adicional.`,
     return NextResponse.json(extracted);
   } catch (error) {
     console.error('AI extraction error:', error);
-    const msg = error instanceof Error ? error.message : 'Error en la extracción con IA';
-    return NextResponse.json({ error: msg }, { status: 500 });
+    const raw = error instanceof Error ? error.message : 'Error en la extracción con IA';
+    const lower = raw.toLowerCase();
+
+    // Traduce errores conocidos del SDK de Anthropic a mensajes claros y accionables.
+    let friendly = raw;
+    let status = 500;
+
+    if (lower.includes('credit balance is too low') || lower.includes('insufficient credit')) {
+      friendly =
+        'La cuenta de Anthropic no tiene créditos suficientes. ' +
+        'Recarga en console.anthropic.com → Plans & Billing y vuelve a intentar. ' +
+        'Mientras tanto puedes registrar el activo manualmente.';
+      status = 402;
+    } else if (
+      lower.includes('invalid api key') ||
+      lower.includes('authentication') ||
+      lower.includes('401')
+    ) {
+      friendly =
+        'La ANTHROPIC_API_KEY configurada no es válida o fue revocada. ' +
+        'Genera una nueva en console.anthropic.com y actualízala en Vercel.';
+      status = 401;
+    } else if (lower.includes('rate limit') || lower.includes('429')) {
+      friendly =
+        'La cuenta de Anthropic alcanzó su límite de uso por minuto. Espera un momento y vuelve a intentar.';
+      status = 429;
+    } else if (
+      lower.includes('overloaded') ||
+      lower.includes('temporarily unavailable') ||
+      lower.includes('529')
+    ) {
+      friendly = 'El servicio de Claude está temporalmente saturado. Intenta de nuevo en unos minutos.';
+      status = 503;
+    } else if (lower.includes('model') && lower.includes('not found')) {
+      friendly = 'El modelo de IA configurado no está disponible para esta cuenta. Contacta al administrador.';
+      status = 500;
+    }
+
+    return NextResponse.json({ error: friendly }, { status });
   }
 }
