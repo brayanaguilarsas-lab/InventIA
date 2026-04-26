@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server';
-import { GoogleGenAI, type Part, Type } from '@google/genai';
+import { GoogleGenAI, type Part } from '@google/genai';
 import { jsonrepair } from 'jsonrepair';
 import { createClient } from '@/lib/supabase/server';
 
@@ -56,33 +56,30 @@ REGLAS:
 
 NUNCA devuelvas todos los campos como null sin explicar en alerts. Si el documento no es legible, di explícitamente "documento no legible" en alerts.`;
 
-const PROMPT = `Extrae los datos del/los documento(s) adjunto(s) y devuelve un JSON con la estructura especificada.`;
+const PROMPT = `Extrae los datos del/los documento(s) adjunto(s) y devuelve UN ÚNICO JSON con esta estructura exacta:
 
-// Schema estructurado de Gemini — fuerza la forma exacta de la respuesta.
-const RESPONSE_SCHEMA = {
-  type: Type.OBJECT,
-  properties: {
-    name: { type: Type.STRING, nullable: true },
-    category_suggestion: { type: Type.STRING, nullable: true },
-    commercial_value: { type: Type.NUMBER, nullable: true },
-    purchase_date: { type: Type.STRING, nullable: true, description: 'YYYY-MM-DD' },
-    supplier: { type: Type.STRING, nullable: true },
-    specific_fields: {
-      type: Type.OBJECT,
-      nullable: true,
-      properties: {
-        marca: { type: Type.STRING, nullable: true },
-        modelo: { type: Type.STRING, nullable: true },
-        serial: { type: Type.STRING, nullable: true },
-      },
-    },
-    alerts: {
-      type: Type.ARRAY,
-      items: { type: Type.STRING },
-    },
+{
+  "name": "nombre descriptivo del activo principal de la factura (ej: 'Celular Xiaomi Redmi 15C 256GB Verde Menta')",
+  "category_suggestion": "Tecnología | Mobiliario | Vehículos | Electrodomésticos",
+  "commercial_value": 3700125,
+  "purchase_date": "2025-10-17",
+  "supplier": "TEKNOSTAR SAS",
+  "specific_fields": {
+    "marca": "Xiaomi",
+    "modelo": "Redmi 15C",
+    "serial": "primer IMEI o serial del documento"
   },
-  required: ['alerts'],
-};
+  "alerts": ["solo si NO pudiste extraer algún campo, explica por qué aquí"]
+}
+
+Importante:
+- Llena CADA campo con el dato extraído. Solo usa null si el dato realmente NO existe en el documento.
+- commercial_value: número entero en pesos colombianos (sin separadores, sin símbolo $, sin comillas). Usa el TOTAL A PAGAR.
+- purchase_date: formato YYYY-MM-DD desde la fecha de expedición de la factura.
+- supplier: razón social del PROVEEDOR (quien emite la factura, NO el cliente).
+- Si la factura tiene varios productos, describe el más relevante en "name".
+
+Devuelve SOLO el JSON, sin markdown ni texto adicional.`;
 
 export async function POST(request: Request) {
   try {
@@ -187,7 +184,6 @@ export async function POST(request: Request) {
         temperature: 0.1, // baja para extracción determinística
         maxOutputTokens: 4000,
         responseMimeType: 'application/json',
-        responseSchema: RESPONSE_SCHEMA, // Gemini garantiza la forma exacta
         // Gemini 2.5 Flash trae "thinking" activado por defecto y consume
         // tokens del output. Para extracción estructurada no aporta y arruina
         // la respuesta — lo desactivamos.
