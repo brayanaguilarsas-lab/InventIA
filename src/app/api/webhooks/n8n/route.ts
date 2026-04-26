@@ -144,8 +144,7 @@ export async function POST(request: Request) {
           to: person.email,
           subject,
           htmlBody: html,
-          pdfBytes,
-          pdfFilename: `Acta_Entrega_${asset.code}.pdf`,
+          attachments: [{ filename: `Acta_Entrega_${asset.code}.pdf`, bytes: pdfBytes }],
         });
         results.email_sent = true;
       } catch (err) {
@@ -202,8 +201,7 @@ export async function POST(request: Request) {
           to: person.email,
           subject,
           htmlBody: html,
-          pdfBytes,
-          pdfFilename: `Acta_Devolucion_${asset.code}.pdf`,
+          attachments: [{ filename: `Acta_Devolucion_${asset.code}.pdf`, bytes: pdfBytes }],
         });
         results.email_sent = true;
       } catch (err) {

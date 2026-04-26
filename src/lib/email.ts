@@ -30,20 +30,24 @@ const ADMIN_EMAILS = [
 const FROM_EMAIL_RAW = process.env.FROM_EMAIL ?? 'inventario@saleads.com';
 const FROM_EMAIL = FROM_EMAIL_RAW.includes('<') ? FROM_EMAIL_RAW : `InventIA <${FROM_EMAIL_RAW}>`;
 
+export interface ActaAttachment {
+  filename: string;
+  bytes: Uint8Array;
+}
+
 interface SendActaEmailParams {
   to: string;
   subject: string;
   htmlBody: string;
-  pdfBytes: Uint8Array;
-  pdfFilename: string;
+  /** Soporta uno o múltiples adjuntos (ej. Spartian = entrega + comodato). */
+  attachments: ActaAttachment[];
 }
 
 export async function sendActaEmail({
   to,
   subject,
   htmlBody,
-  pdfBytes,
-  pdfFilename,
+  attachments,
 }: SendActaEmailParams) {
   if (!process.env.RESEND_API_KEY) {
     console.warn('[Email] Resend API key not configured, skipping email');
@@ -59,12 +63,10 @@ export async function sendActaEmail({
     to: allRecipients,
     subject,
     html: htmlBody,
-    attachments: [
-      {
-        filename: pdfFilename,
-        content: Buffer.from(pdfBytes),
-      },
-    ],
+    attachments: attachments.map((a) => ({
+      filename: a.filename,
+      content: Buffer.from(a.bytes),
+    })),
   });
 
   if (error) {

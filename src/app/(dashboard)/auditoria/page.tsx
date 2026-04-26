@@ -27,6 +27,7 @@ const actionLabels: Record<string, { label: string; variant: 'default' | 'second
   asignar_activo: { label: 'Asignar activo', variant: 'default' },
   editar_asignacion: { label: 'Editar asignación', variant: 'outline' },
   eliminar_asignacion: { label: 'Eliminar asignación', variant: 'destructive' },
+  reenviar_acta: { label: 'Reenviar acta', variant: 'outline' },
   devolver_activo: { label: 'Devolver activo', variant: 'secondary' },
   enviar_mantenimiento: { label: 'Enviar a mantenimiento', variant: 'outline' },
   retorno_mantenimiento: { label: 'Retorno mantenimiento', variant: 'secondary' },

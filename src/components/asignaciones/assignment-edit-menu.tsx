@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   deleteAssignment,
+  resendAssignmentEmail,
   updateAssignmentPerson,
 } from '@/lib/actions/assignments';
 import { togglePersonSpartian } from '@/lib/actions/people';
@@ -42,7 +43,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { MoreHorizontal, Pencil, Trash2, Star, FileText, Loader2 } from 'lucide-react';
+import { MoreHorizontal, Pencil, Trash2, Star, FileText, Loader2, Mail } from 'lucide-react';
 import { toast } from 'sonner';
 import { humanizeError } from '@/lib/errors';
 
@@ -138,6 +139,21 @@ export function AssignmentEditMenu({
     }
   }
 
+  async function handleResend() {
+    const id = toast.loading('Reenviando acta…');
+    try {
+      const res = await resendAssignmentEmail(assignmentId);
+      if (res.ok) {
+        const adjuntos = res.attachmentCount === 2 ? '2 actas' : '1 acta';
+        toast.success(`Correo reenviado a ${res.recipient} (${adjuntos})`, { id });
+      } else {
+        toast.error(res.error ?? 'No se pudo reenviar el correo', { id });
+      }
+    } catch (err) {
+      toast.error(humanizeError(err), { id });
+    }
+  }
+
   return (
     <>
       <DropdownMenu>
@@ -159,6 +175,10 @@ export function AssignmentEditMenu({
             <DropdownMenuItem onClick={handleToggleSpartian}>
               <Star className="mr-2 h-4 w-4" />
               {personIsSpartian ? 'Quitar Spartian' : 'Marcar como Spartian'}
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={handleResend}>
+              <Mail className="mr-2 h-4 w-4" />
+              Reenviar correo {personIsSpartian ? '(2 actas)' : '(acta de entrega)'}
             </DropdownMenuItem>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />

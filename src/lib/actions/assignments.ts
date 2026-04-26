@@ -10,9 +10,9 @@ import {
 import { logAudit } from '@/lib/audit';
 import { revalidatePath } from 'next/cache';
 import { generateActaPDF } from '@/lib/pdf/generate-acta';
-import { generateActaSpartianPDF } from '@/lib/pdf/generate-acta-spartian';
-import { sendActaEmail, buildEntregaEmail, buildDevolucionEmail } from '@/lib/email';
+import { sendActaEmail, buildDevolucionEmail } from '@/lib/email';
 import { uploadActaToDrive } from '@/lib/google-drive';
+import { deliverEntregaActa } from '@/lib/acta-delivery';
 
 export async function getAssignments(activeOnly = false) {
   const supabase = await createClient();
@@ -90,98 +90,9 @@ export async function createAssignment(input: CreateAssignmentInput) {
     category: { name: string } | null;
   };
 
-  // Get admin name
-  let adminName = 'Administración SaleADS';
-  if (user) {
-    const { data: profile } = await supabase
-      .from('user_profiles')
-      .select('full_name')
-      .eq('id', user.id)
-      .single();
-    if (profile) adminName = profile.full_name;
-  }
-
-  const actaTipo = person.is_spartian ? 'comodato_spartian' : 'entrega';
-  const actaPrefix = person.is_spartian ? 'Acta_Comodato_Spartian' : 'Acta_Entrega';
-  const actaSubject = person.is_spartian
-    ? `Acta de Entrega y Comodato — ${fullAsset.code} (${fullAsset.name})`
-    : `Acta de Entrega — ${fullAsset.code} (${fullAsset.name})`;
-
-  // Background: Generate PDF, upload to Drive, send email
+  // Genera PDF(s), sube a Drive y envía email. Spartian recibe ambas actas.
   try {
-    const sf = (fullAsset.specific_fields ?? {}) as Record<string, unknown>;
-    const pdfBytes = person.is_spartian
-      ? await generateActaSpartianPDF({
-          assetCode: fullAsset.code,
-          assetName: fullAsset.name,
-          assetType: fullAsset.category?.name ?? 'Equipo tecnológico',
-          brand: sf.marca as string | undefined,
-          model: sf.modelo as string | undefined,
-          serial: sf.serial as string | undefined,
-          ram: sf.ram as string | undefined,
-          storage: sf.almacenamiento as string | undefined,
-          accessories: sf.accesorios as string | undefined,
-          commercialValue: Number(fullAsset.commercial_value),
-          personName: person.full_name,
-          personIdType: person.id_type,
-          personIdNumber: person.id_number,
-          personPosition: person.position,
-          date: data.assigned_at,
-          assignedBy: adminName,
-        })
-      : await generateActaPDF({
-          tipo: 'entrega',
-          assetCode: fullAsset.code,
-          assetName: fullAsset.name,
-          categoryName: fullAsset.category?.name ?? '',
-          commercialValue: Number(fullAsset.commercial_value),
-          specificFields: fullAsset.specific_fields ?? {},
-          personName: person.full_name,
-          personIdType: person.id_type,
-          personIdNumber: person.id_number,
-          personArea: person.area,
-          personPosition: person.position,
-          personEmail: person.email,
-          date: data.assigned_at,
-          assignedBy: adminName,
-        });
-    void actaTipo;
-
-    // Upload to Drive if configured
-    if (fullAsset.drive_folder_url) {
-      try {
-        const actaUrl = await uploadActaToDrive(
-          fullAsset.drive_folder_url,
-          `${actaPrefix}_${fullAsset.code}_${person.full_name.replace(/\s/g, '_')}.pdf`,
-          pdfBytes
-        );
-        await supabase.from('assignments').update({ acta_url: actaUrl }).eq('id', data.id);
-      } catch (e) {
-        console.error('[Drive] Upload error:', e);
-      }
-    }
-
-    // Send email (la plantilla viene de DB con fallback al hardcoded)
-    try {
-      const { subject: tplSubject, html } = await buildEntregaEmail({
-        personName: person.full_name,
-        personIdType: person.id_type,
-        personIdNumber: person.id_number,
-        assetCode: fullAsset.code,
-        assetName: fullAsset.name,
-        date: data.assigned_at,
-      });
-      await sendActaEmail({
-        to: person.email,
-        // Para Spartian conservamos el subject específico; para entrega normal usamos el de la plantilla.
-        subject: person.is_spartian ? actaSubject : tplSubject,
-        htmlBody: html,
-        pdfBytes,
-        pdfFilename: `${actaPrefix}_${fullAsset.code}.pdf`,
-      });
-    } catch (e) {
-      console.error('[Email] Send error:', e);
-    }
+    await deliverEntregaActa(supabase, data, person, fullAsset);
   } catch (e) {
     console.error('[Assignment] PDF/Drive/Email error:', e);
   }
@@ -379,8 +290,9 @@ export async function returnAssignment(assignmentId: string, input: ReturnAssign
         to: person.email,
         subject,
         htmlBody: html,
-        pdfBytes,
-        pdfFilename: `Acta_Devolucion_${fullAsset.code}.pdf`,
+        attachments: [
+          { filename: `Acta_Devolucion_${fullAsset.code}.pdf`, bytes: pdfBytes },
+        ],
       });
     } catch (e) {
       console.error('[Email] Send error:', e);
@@ -398,4 +310,81 @@ export async function returnAssignment(assignmentId: string, input: ReturnAssign
   revalidatePath('/asignaciones');
   revalidatePath('/activos');
   return data;
+}
+
+export interface ResendResult {
+  ok: boolean;
+  recipient: string | null;
+  attachmentCount: number;
+  error: string | null;
+}
+
+/**
+ * Reenvía manualmente el acta de entrega (y la de comodato Spartian si aplica)
+ * de una asignación activa. Útil cuando el destinatario no recibe el correo,
+ * cambia de email, o se actualiza una plantilla y se quiere reemitir.
+ */
+export async function resendAssignmentEmail(assignmentId: string): Promise<ResendResult> {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return { ok: false, recipient: null, attachmentCount: 0, error: 'Sesión inválida' };
+  }
+
+  const { data: assignment, error } = await supabase
+    .from('assignments')
+    .select('*, asset:assets(*, category:categories(*)), person:people(*)')
+    .eq('id', assignmentId)
+    .single();
+
+  if (error || !assignment) {
+    return { ok: false, recipient: null, attachmentCount: 0, error: 'Asignación no encontrada' };
+  }
+  if (!assignment.is_active) {
+    return {
+      ok: false,
+      recipient: null,
+      attachmentCount: 0,
+      error: 'No se puede reenviar: la asignación ya fue cerrada',
+    };
+  }
+
+  const person = assignment.person as unknown as {
+    full_name: string; id_type: string; id_number: string;
+    area: string; position: string; email: string;
+    is_spartian?: boolean;
+  };
+  const fullAsset = assignment.asset as unknown as {
+    code: string; name: string; commercial_value: number;
+    specific_fields: Record<string, unknown>;
+    drive_folder_url: string | null;
+    category: { name: string } | null;
+  };
+
+  let result;
+  try {
+    result = await deliverEntregaActa(supabase, assignment, person, fullAsset);
+  } catch (e) {
+    return {
+      ok: false,
+      recipient: person.email,
+      attachmentCount: 0,
+      error: (e as Error).message,
+    };
+  }
+
+  await logAudit('reenviar_acta', 'assignments', assignmentId, {
+    asset_code: fullAsset.code,
+    person_name: person.full_name,
+    recipient: result.recipient,
+    is_spartian: !!person.is_spartian,
+    attachments: result.attachmentCount,
+  });
+
+  return {
+    ok: result.emailSent,
+    recipient: result.recipient,
+    attachmentCount: result.attachmentCount,
+    error: result.emailError,
+  };
 }
