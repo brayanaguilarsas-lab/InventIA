@@ -57,10 +57,34 @@ export function AssetForm({ categories }: { categories: Category[] }) {
     }));
   }
 
+  function normalize(s: string) {
+    return s
+      .normalize('NFD')
+      .replace(/[̀-ͯ]/g, '')
+      .toLowerCase()
+      .trim();
+  }
+
+  function parseNumber(v: unknown): number | null {
+    if (typeof v === 'number' && Number.isFinite(v)) return v;
+    if (typeof v === 'string') {
+      // Acepta "7500000", "7.500.000", "$7.500.000", "7,500,000", "$ 7.500.000 COP"
+      const cleaned = v.replace(/[^\d.,-]/g, '').replace(/[.,](?=\d{3}\b)/g, '');
+      const n = Number(cleaned.replace(',', '.'));
+      return Number.isFinite(n) ? n : null;
+    }
+    return null;
+  }
+
   async function handleAIExtract() {
     if (files.length === 0) return;
+    if (files.length > 3) {
+      setError('Máximo 3 archivos por extracción.');
+      return;
+    }
     setExtracting(true);
     setAiAlerts([]);
+    setError('');
 
     try {
       const formDataObj = new FormData();
@@ -81,27 +105,44 @@ export function AssetForm({ categories }: { categories: Category[] }) {
         throw new Error(result?.error || `Error en la extracción (HTTP ${response.status})`);
       }
 
+      // Si la IA sugiere categoría y aún no había una seleccionada, aplicarla.
+      // Comparamos normalizado (sin tildes ni mayúsculas) para tolerar variaciones.
+      let categoryToApply: Category | null = selectedCategory;
+      if (result.category_suggestion && !selectedCategory) {
+        const target = normalize(String(result.category_suggestion));
+        const suggestedCat = categories.find((c) => normalize(c.name) === target);
+        if (suggestedCat) categoryToApply = suggestedCat;
+      }
+
+      // Aplicamos categoría + datos en UN SOLO setState para evitar la
+      // race condition donde handleCategoryChange resetea specific_fields
+      // que acabamos de extraer.
+      const parsedValue = parseNumber(result.commercial_value);
+      setSelectedCategory(categoryToApply);
       setFormData((prev) => ({
         ...prev,
         name: result.name || prev.name,
-        commercial_value: result.commercial_value || prev.commercial_value,
+        category_id: categoryToApply?.id ?? prev.category_id,
+        commercial_value: parsedValue ?? prev.commercial_value,
         purchase_date: result.purchase_date || prev.purchase_date,
         supplier: result.supplier || prev.supplier,
-        specific_fields: { ...prev.specific_fields, ...result.specific_fields },
+        specific_fields: { ...prev.specific_fields, ...(result.specific_fields ?? {}) },
       }));
 
-      if (result.category_suggestion && !selectedCategory) {
-        const suggestedCat = categories.find(
-          (c) => c.name.toLowerCase() === result.category_suggestion.toLowerCase()
-        );
-        if (suggestedCat) {
-          handleCategoryChange(suggestedCat.id);
-        }
-      }
+      const alerts = Array.isArray(result.alerts) ? result.alerts : [];
+      if (alerts.length > 0) setAiAlerts(alerts);
 
-      if (result.alerts && result.alerts.length > 0) {
-        setAiAlerts(result.alerts);
-      }
+      const filledCount = [
+        result.name,
+        parsedValue,
+        result.purchase_date,
+        result.supplier,
+      ].filter(Boolean).length;
+      toast.success(
+        filledCount > 0
+          ? `Extracción completada: ${filledCount} campo${filledCount === 1 ? '' : 's'} rellenado${filledCount === 1 ? '' : 's'}`
+          : 'Extracción completada — revisa las alertas'
+      );
     } catch (err) {
       const msg = humanizeError(err);
       setError(msg || 'Error al extraer datos con IA. Completa los campos manualmente.');
@@ -169,11 +210,17 @@ export function AssetForm({ categories }: { categories: Category[] }) {
               type="file"
               multiple
               accept="image/*,.pdf"
-              onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
+              onChange={(e) => setFiles(Array.from(e.target.files ?? []).slice(0, 3))}
+              disabled={extracting}
               className="mt-2"
             />
             <p className="mt-1 text-xs text-muted-foreground">
-              Máximo 3 archivos. La IA extraerá los datos automáticamente.
+              Máximo 3 archivos · 10MB c/u · JPG, PNG, WebP o PDF.
+              {files.length > 0 && (
+                <span className="ml-1 font-medium text-foreground">
+                  {files.length} archivo{files.length === 1 ? '' : 's'} listo{files.length === 1 ? '' : 's'}.
+                </span>
+              )}
             </p>
           </div>
           <Button
