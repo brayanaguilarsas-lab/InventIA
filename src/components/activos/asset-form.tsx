@@ -105,6 +105,15 @@ export function AssetForm({ categories }: { categories: Category[] }) {
         throw new Error(result?.error || `Error en la extracción (HTTP ${response.status})`);
       }
 
+      // El endpoint puede devolver 200 con { error, alerts } cuando la IA no
+      // pudo leer el documento. En ese caso no hay datos que aplicar; mostramos
+      // el error como toast y mantenemos los campos como están.
+      if (result.error && !result.name && !result.specific_fields) {
+        toast.error('Extracción con IA falló', { description: result.error });
+        if (Array.isArray(result.alerts)) setAiAlerts(result.alerts);
+        return;
+      }
+
       // Si la IA sugiere categoría y aún no había una seleccionada, aplicarla.
       // Comparamos normalizado (sin tildes ni mayúsculas) para tolerar variaciones.
       let categoryToApply: Category | null = selectedCategory;

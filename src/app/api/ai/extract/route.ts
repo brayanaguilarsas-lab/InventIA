@@ -160,20 +160,43 @@ export async function POST(request: Request) {
       contents: [{ role: 'user', parts }],
       config: {
         temperature: 0.1, // baja para extracción determinística
-        maxOutputTokens: 2000,
+        maxOutputTokens: 4000,
         responseMimeType: 'application/json', // fuerza JSON, evita markdown
+        // Gemini 2.5 Flash trae "thinking" activado por defecto y consume
+        // tokens del output. Para extracción estructurada no aporta y arruina
+        // la respuesta — lo desactivamos.
+        thinkingConfig: { thinkingBudget: 0 },
       },
     });
 
-    const responseText = response.text ?? '';
+    const responseText = (response.text ?? '').trim();
+    const finishReason = response.candidates?.[0]?.finishReason;
+
+    if (!responseText) {
+      console.error('[AI] Respuesta vacía de Gemini', {
+        finishReason,
+        promptFeedback: response.promptFeedback,
+      });
+      const reasonMsg =
+        finishReason === 'SAFETY'
+          ? 'La IA bloqueó el contenido por filtros de seguridad'
+          : finishReason === 'MAX_TOKENS'
+            ? 'La respuesta superó el límite de tokens (intenta con menos páginas)'
+            : 'La IA no devolvió respuesta';
+      return NextResponse.json(
+        { error: reasonMsg, alerts: [reasonMsg] },
+        { status: 200 }
+      );
+    }
 
     // Aunque pedimos JSON, defendemos parseo si vino con markdown fence.
     const jsonMatch = responseText.match(/\{[\s\S]*\}/);
     if (!jsonMatch) {
+      console.error('[AI] Sin JSON parseable en respuesta:', responseText.slice(0, 500));
       return NextResponse.json(
         {
-          error: 'No se pudo extraer información',
-          alerts: ['La IA no pudo procesar los documentos'],
+          error: 'La IA no devolvió datos estructurados',
+          alerts: ['Reintenta con una imagen más nítida o ingresa los datos manualmente'],
         },
         { status: 200 }
       );
@@ -182,7 +205,8 @@ export async function POST(request: Request) {
     let extracted: unknown;
     try {
       extracted = JSON.parse(jsonMatch[0]);
-    } catch {
+    } catch (parseErr) {
+      console.error('[AI] JSON inválido:', parseErr, jsonMatch[0].slice(0, 500));
       return NextResponse.json(
         {
           error: 'La IA devolvió un JSON inválido',
