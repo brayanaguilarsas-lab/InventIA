@@ -54,6 +54,8 @@ export default async function AssetDetailPage({
     asset.purchase_date
   );
   const supplier = (asset as unknown as { supplier?: string | null }).supplier ?? null;
+  const quantity = Math.max(1, Number((asset as unknown as { quantity?: number }).quantity ?? 1));
+  const commercialValue = Number(asset.commercial_value) || 0;
 
   return (
     <div className="space-y-6">
@@ -83,9 +85,27 @@ export default async function AssetDetailPage({
             </div>
             <Separator />
             <div className="flex justify-between">
-              <span className="text-sm text-muted-foreground">Valor Comercial</span>
+              <span className="text-sm text-muted-foreground">Cantidad</span>
+              <span className="text-sm font-mono font-medium">{quantity}</span>
+            </div>
+            <Separator />
+            {quantity > 1 && (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-sm text-muted-foreground">Valor unitario</span>
+                  <span className="text-sm font-mono">
+                    {formatCurrency(commercialValue / quantity)}
+                  </span>
+                </div>
+                <Separator />
+              </>
+            )}
+            <div className="flex justify-between">
+              <span className="text-sm text-muted-foreground">
+                {quantity > 1 ? 'Valor total' : 'Valor Comercial'}
+              </span>
               <span className="text-sm font-mono font-medium">
-                {formatCurrency(Number(asset.commercial_value))}
+                {formatCurrency(commercialValue)}
               </span>
             </div>
             <Separator />

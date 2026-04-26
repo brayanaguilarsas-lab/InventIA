@@ -126,17 +126,31 @@ export function AssetForm({ categories }: { categories: Category[] }) {
       // Aplicamos categoría + datos en UN SOLO setState para evitar la
       // race condition donde handleCategoryChange resetea specific_fields
       // que acabamos de extraer.
-      const parsedValue = parseNumber(result.commercial_value);
+      // Si la IA da unit_value y quantity, preferimos commercial_value
+      // = unit × qty (más confiable que el campo crudo).
+      const parsedQty = parseNumber(result.quantity);
+      const parsedUnit = parseNumber(result.unit_value);
+      const parsedTotal = parseNumber(result.commercial_value);
+
       setSelectedCategory(categoryToApply);
-      setFormData((prev) => ({
-        ...prev,
-        name: result.name || prev.name,
-        category_id: categoryToApply?.id ?? prev.category_id,
-        commercial_value: parsedValue ?? prev.commercial_value,
-        purchase_date: result.purchase_date || prev.purchase_date,
-        supplier: result.supplier || prev.supplier,
-        specific_fields: { ...prev.specific_fields, ...(result.specific_fields ?? {}) },
-      }));
+      setFormData((prev) => {
+        const finalQty =
+          parsedQty !== null && parsedQty > 0 ? Math.floor(parsedQty) : prev.quantity;
+        const finalValue =
+          parsedUnit !== null && finalQty > 0
+            ? parsedUnit * finalQty
+            : (parsedTotal ?? prev.commercial_value);
+        return {
+          ...prev,
+          name: result.name || prev.name,
+          category_id: categoryToApply?.id ?? prev.category_id,
+          quantity: finalQty,
+          commercial_value: finalValue,
+          purchase_date: result.purchase_date || prev.purchase_date,
+          supplier: result.supplier || prev.supplier,
+          specific_fields: { ...prev.specific_fields, ...(result.specific_fields ?? {}) },
+        };
+      });
 
       const alerts = Array.isArray(result.alerts) ? result.alerts : [];
       if (alerts.length > 0) setAiAlerts(alerts);
@@ -145,8 +159,8 @@ export function AssetForm({ categories }: { categories: Category[] }) {
         ? Object.values(result.specific_fields).filter((v) => v != null && v !== '').length
         : 0;
       const filledCount =
-        [result.name, parsedValue, result.purchase_date, result.supplier].filter(Boolean).length +
-        specificCount;
+        [result.name, parsedTotal ?? parsedUnit, result.purchase_date, result.supplier]
+          .filter(Boolean).length + specificCount;
 
       if (filledCount === 0) {
         toast.error('La IA no pudo leer datos del documento', {

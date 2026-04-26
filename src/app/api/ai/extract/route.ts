@@ -45,13 +45,16 @@ function checkRateLimit(userId: string): { ok: boolean; retryAfterSec: number } 
 const SYSTEM_INSTRUCTION = `Eres un asistente experto en extraer datos de facturas, fotos de productos y fichas técnicas para un sistema de inventario de activos empresariales colombiano (moneda COP).
 
 REGLAS:
-- Lee TODO el documento con atención. Las facturas colombianas suelen tener: razón social del proveedor, NIT, fecha de expedición, descripción del producto, valor unitario, valor total, IVA.
-- "name": describe el activo concreto (ej. "MacBook Pro 14 M3", "Silla ejecutiva ergonómica", no "Equipo" genérico).
-- "commercial_value": el valor TOTAL del activo en pesos colombianos como número entero, sin separadores. Ej: 7500000. Si la factura tiene varios items, suma o usa el más relevante.
-- "purchase_date": fecha de compra/expedición de la factura en formato YYYY-MM-DD.
-- "supplier": razón social del PROVEEDOR (quien vende), no del comprador.
+- Lee TODO el documento con atención. Las facturas colombianas suelen tener: razón social del proveedor, NIT, fecha de expedición, descripción del producto, cantidad (CANT), valor unitario (VR UNITARIO), valor total (VR TOTAL), IVA.
+- Si la factura tiene VARIOS items, identifica el item PRINCIPAL (el más caro o el que es activo de inventario, ignorando "envío", "domicilio", "instalación", "garantía adicional").
+- "name": describe el activo concreto (ej. "Celular Xiaomi Redmi 15C 256GB Verde Menta", "MacBook Pro 14 M3", "Silla ejecutiva ergonómica"). NO incluyas la cantidad en el nombre.
+- "quantity": entero >= 1, copia el valor de la columna CANT del item principal. Si no aparece o no se identifica, usa 1.
+- "unit_value": valor UNITARIO de UN solo activo, en pesos colombianos como entero (sin $, sin separadores). Es la columna VR UNITARIO. Si solo ves el total, calcula total / cantidad.
+- "commercial_value": valor TOTAL del item principal = unit_value × quantity. NO uses el "TOTAL A PAGAR" de la factura porque ese incluye envío, IVA, descuentos.
+- "purchase_date": fecha de compra/expedición en formato YYYY-MM-DD.
+- "supplier": razón social del PROVEEDOR (quien emite la factura), no del comprador (cliente).
 - "category_suggestion": elige UNA de: "Tecnología", "Mobiliario", "Vehículos", "Electrodomésticos".
-- "specific_fields": objeto con marca, modelo, serial y demás datos específicos del activo.
+- "specific_fields": objeto con marca, modelo, serial y demás datos específicos. Si hay varios seriales/IMEIs, usa el primero.
 - "alerts": lista de campos que NO pudiste extraer y por qué. Si un campo se extrajo correctamente NO debe estar en alerts.
 
 NUNCA devuelvas todos los campos como null sin explicar en alerts. Si el documento no es legible, di explícitamente "documento no legible" en alerts.`;
@@ -59,25 +62,25 @@ NUNCA devuelvas todos los campos como null sin explicar en alerts. Si el documen
 const PROMPT = `Extrae los datos del/los documento(s) adjunto(s) y devuelve UN ÚNICO JSON con esta estructura exacta:
 
 {
-  "name": "nombre descriptivo del activo principal de la factura (ej: 'Celular Xiaomi Redmi 15C 256GB Verde Menta')",
+  "name": "nombre descriptivo del activo (sin cantidad)",
   "category_suggestion": "Tecnología | Mobiliario | Vehículos | Electrodomésticos",
-  "commercial_value": 3700125,
+  "quantity": 6,
+  "unit_value": 630000,
+  "commercial_value": 3780000,
   "purchase_date": "2025-10-17",
   "supplier": "TEKNOSTAR SAS",
   "specific_fields": {
     "marca": "Xiaomi",
     "modelo": "Redmi 15C",
-    "serial": "primer IMEI o serial del documento"
+    "serial": "primer IMEI o serial del item principal"
   },
   "alerts": ["solo si NO pudiste extraer algún campo, explica por qué aquí"]
 }
 
 Importante:
-- Llena CADA campo con el dato extraído. Solo usa null si el dato realmente NO existe en el documento.
-- commercial_value: número entero en pesos colombianos (sin separadores, sin símbolo $, sin comillas). Usa el TOTAL A PAGAR.
-- purchase_date: formato YYYY-MM-DD desde la fecha de expedición de la factura.
-- supplier: razón social del PROVEEDOR (quien emite la factura, NO el cliente).
-- Si la factura tiene varios productos, describe el más relevante en "name".
+- Todos los valores monetarios son enteros en COP, sin símbolo $ ni separadores.
+- commercial_value DEBE ser unit_value × quantity (no es el TOTAL A PAGAR de la factura).
+- Si la factura tiene un solo item, quantity = 1 y unit_value = commercial_value.
 
 Devuelve SOLO el JSON, sin markdown ni texto adicional.`;
 
