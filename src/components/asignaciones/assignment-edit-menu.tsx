@@ -211,7 +211,18 @@ export function AssignmentEditMenu({
       </DropdownMenu>
 
       {/* Modificar persona */}
-      <Dialog open={editOpen} onOpenChange={setEditOpen}>
+      <Dialog
+        open={editOpen}
+        onOpenChange={(next) => {
+          setEditOpen(next);
+          if (!next) {
+            // Al cerrar (cancelar o submit) reseteamos para que la próxima
+            // apertura no muestre selecciones pendientes de un intento previo.
+            setNewPersonId(personId);
+            setEditError('');
+          }
+        }}
+      >
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Modificar asignación · {assetCode}</DialogTitle>

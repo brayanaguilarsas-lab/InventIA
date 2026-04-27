@@ -67,7 +67,7 @@ export function AssetFilters({ categories }: { categories: Category[] }) {
           placeholder="Buscar por nombre o código..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="max-w-xs"
+          className="w-full sm:max-w-xs"
         />
       </Hint>
       <Hint label="Filtrar por estado" description="Disponible, asignado, mantenimiento o baja">

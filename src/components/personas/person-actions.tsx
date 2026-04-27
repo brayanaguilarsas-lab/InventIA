@@ -29,9 +29,11 @@ import { humanizeError } from '@/lib/errors';
 export function PersonActions({
   personId,
   isActive,
+  personName,
 }: {
   personId: string;
   isActive: boolean;
+  personName?: string;
 }) {
   const router = useRouter();
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -89,10 +91,12 @@ export function PersonActions({
       <AlertDialog open={confirmOpen} onOpenChange={setConfirmOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>¿Desactivar esta persona?</AlertDialogTitle>
+            <AlertDialogTitle>
+              ¿Desactivar a {personName ?? 'esta persona'}?
+            </AlertDialogTitle>
             <AlertDialogDescription>
-              No podrá recibir nuevas asignaciones. Las asignaciones actuales no se verán afectadas.
-              Puedes reactivarla en cualquier momento.
+              No podrá recibir nuevas asignaciones. Si tiene activos asignados deberás
+              devolverlos primero. Puedes reactivarla en cualquier momento.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>

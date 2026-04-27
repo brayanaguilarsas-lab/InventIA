@@ -43,15 +43,26 @@ export const returnAssignmentSchema = z.object({
   damage_description: z.string().nullable().optional(),
 });
 
+// Helper: fecha YYYY-MM-DD, no en el futuro y no antes del 2000.
+const pastOrTodayDate = z
+  .string()
+  .min(1, 'La fecha es requerida')
+  .refine((d) => !Number.isNaN(Date.parse(d)), 'Formato de fecha inválido')
+  .refine(
+    (d) => new Date(d) <= new Date(Date.now() + 24 * 60 * 60 * 1000),
+    'La fecha no puede estar en el futuro'
+  )
+  .refine((d) => new Date(d).getFullYear() >= 2000, 'Fecha demasiado antigua');
+
 export const createMaintenanceSchema = z.object({
   asset_id: z.string().uuid('Selecciona un activo'),
   reason: z.string().min(1, 'El motivo es requerido'),
   description: z.string().min(1, 'La descripción es requerida'),
-  sent_at: z.string().min(1, 'La fecha de envío es requerida'),
+  sent_at: pastOrTodayDate,
 });
 
 export const returnMaintenanceSchema = z.object({
-  returned_at: z.string().min(1, 'La fecha de retorno es requerida'),
+  returned_at: pastOrTodayDate,
   final_status: maintenanceFinalStatusEnum,
 });
 

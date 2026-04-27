@@ -64,7 +64,7 @@ export function PeopleSearch({ areas }: { areas: string[] }) {
           placeholder="Buscar por nombre, identificación o correo..."
           value={search}
           onChange={(e) => setSearch(e.target.value)}
-          className="max-w-md"
+          className="w-full sm:max-w-md"
         />
       </Hint>
       <Hint label="Filtrar por área" description="Growth, Operaciones, TI, Admin…">

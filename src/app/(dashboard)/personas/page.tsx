@@ -125,7 +125,11 @@ export default async function PeoplePage({
                             <Eye className="h-3 w-3" />
                           </Button>
                         </Link>
-                        <PersonActions personId={person.id} isActive={person.is_active} />
+                        <PersonActions
+                          personId={person.id}
+                          isActive={person.is_active}
+                          personName={titleCase(person.full_name)}
+                        />
                       </div>
                     </TableCell>
                   </TableRow>

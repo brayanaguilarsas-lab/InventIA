@@ -44,6 +44,10 @@ export async function createAssignment(input: CreateAssignmentInput) {
     .single();
   if (pErr || !destPerson) throw new Error('La persona seleccionada no existe');
   if (!destPerson.is_active) throw new Error('No se puede asignar a una persona inactiva');
+  // Evitar self-assignment del usuario logueado (Admin asignándose a sí mismo).
+  if (parsed.person_id === user.id) {
+    throw new Error('No puedes asignarte un activo a ti mismo');
+  }
 
   // Claim atómico: solo pasa a 'asignado' si sigue 'disponible'.
   // Evita la race condition donde dos asignaciones concurrentes toman el mismo activo.

@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Hint } from '@/components/ui/hint';
 import { FileSpreadsheet, FileText, Loader2 } from 'lucide-react';
+import { toast } from 'sonner';
 
 export function ExportButton() {
   const [loading, setLoading] = useState<'csv' | 'pdf' | null>(null);
@@ -13,6 +14,10 @@ export function ExportButton() {
   async function handleExport(format: 'csv' | 'pdf') {
     setLoading(format);
     setError(null);
+    const toastId = toast.loading(
+      format === 'csv' ? 'Generando archivo CSV…' : 'Generando reporte PDF…',
+      { description: 'Esto puede tardar unos segundos en inventarios grandes.' }
+    );
     try {
       const res = await fetch(`/api/reportes/export?format=${format}&t=${Date.now()}`, {
         credentials: 'same-origin',
@@ -39,9 +44,12 @@ export function ExportButton() {
         a.remove();
         URL.revokeObjectURL(url);
       }, 100);
+      toast.success(format === 'csv' ? 'CSV descargado' : 'PDF descargado', { id: toastId });
     } catch (err) {
       console.error('[Export]', err);
-      setError(err instanceof Error ? err.message : 'Error al exportar');
+      const msg = err instanceof Error ? err.message : 'Error al exportar';
+      setError(msg);
+      toast.error('No se pudo exportar', { id: toastId, description: msg.slice(0, 200) });
     } finally {
       setLoading(null);
     }
